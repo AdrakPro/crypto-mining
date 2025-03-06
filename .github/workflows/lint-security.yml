@@ -1,0 +1,19 @@
+name: Lint & Security Checks
+
+on: [pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: pip install black bandit
+
+      - name: Run Black Linter
+        run: black --check .
+
+      - name: Run Security Scan
+        run: bandit -r .
