@@ -1,0 +1,14 @@
+# Project Manager has global oversight
+*                     @AdrakPro
+
+# Backend team ownership
+/backend/             @code-lead
+
+# Frontend team ownership  
+/frontend/            @code-lead
+
+# Testing team ownership
+/*/tests/             @testing-lead
+
+# Security-sensitive areas
+/.github/workflows/   @AdrakPro
