@@ -2,13 +2,13 @@
 *                     @AdrakPro
 
 # Backend team ownership
-/backend/             @code-lead
+/backend/             @tobiaszrolla
 
 # Frontend team ownership  
-/frontend/            @code-lead
+/frontend/            @tobiasz-rolla
 
 # Testing team ownership
-/*/tests/             @testing-lead
+/*/tests/             @Igorrr213
 
 # Security-sensitive areas
 /.github/workflows/   @AdrakPro
