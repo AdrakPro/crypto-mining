@@ -13,7 +13,24 @@ jobs:
         run: pip install black bandit
 
       - name: Run Black Linter
-        run: black --check .
+        run: black --check ./backend/src
 
       - name: Run Security Scan
-        run: bandit -r .
+        run: bandit -r ./backend/src
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ./frontend
+
+      - name: Run ESLint
+        run: npx eslint ./src --max-warnings=0
+        working-directory: ./frontend
+
+      - name: Run Security Audit
+        run: npm audit --audit-level=high
+        working-directory: ./frontend
