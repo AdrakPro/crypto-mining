@@ -7,3 +7,8 @@ app = FastAPI()
 @app.get("/")
 def read_root():
     return {"message": "Hello, FastAPI!"}
+
+#ping od klienta
+@app.post("/ping")
+def ping():
+    return {"message": "Client is online"}
