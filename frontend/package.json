@@ -20,5 +20,13 @@
     "vite": "^6.2.0",
     "vite-plugin-html": "^3.2.2"
   },
-  "type": "module"
+  "type": "module",
+  "main": ".prettierrc.js",
+  "directories": {
+    "test": "tests"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
 }
