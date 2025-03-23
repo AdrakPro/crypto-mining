@@ -4,4 +4,7 @@ pytest
 black
 bandit
 httpx
-request
+requests
+sqlalchemy
+psycopg2-binary
+python-dotenv
