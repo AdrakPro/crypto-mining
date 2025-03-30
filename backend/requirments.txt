@@ -8,3 +8,5 @@ requests
 sqlalchemy
 psycopg2-binary
 python-dotenv
+jose
+python-multipart

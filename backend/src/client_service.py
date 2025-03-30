@@ -6,9 +6,15 @@ def get_client_by_ip(db: Session, ip_address: str):
     """Get client by IP address"""
     return db.query(Client).filter(Client.ip_address == ip_address).first()
 
-def create_client(db: Session, ip_address: str):
+def get_client_by_username(db: Session, username: str):
+    """Get client by username"""
+    return db.query(Client).filter(Client.username == username).first()
+
+def create_client(db: Session, ip_address: str, username: str, password: str):
     """Create a new client record"""
     db_client = Client(
+        username=username,
+        password=password,
         ip_address=ip_address,
         last_seen=datetime.utcnow(),
         tasks_completed=0,
@@ -19,7 +25,7 @@ def create_client(db: Session, ip_address: str):
     db.refresh(db_client)
     return db_client
 
-def update_client_ping(db: Session, ip_address: str):
+def update_client_ping(db: Session, ip_address: str,  username: str, password: str):
     """Update client last seen timestamp"""
     client = get_client_by_ip(db, ip_address)
     if client:
@@ -27,13 +33,13 @@ def update_client_ping(db: Session, ip_address: str):
         db.commit()
         db.refresh(client)
         return client
-    return create_client(db, ip_address)
+    return create_client(db, ip_address, username, password)
 
-def update_client_task_completion(db: Session, ip_address: str, is_correct: bool):
+def update_client_task_completion(db: Session, ip_address: str, is_correct: bool,  username: str, password: str):
     """Update client task statistics"""
     client = get_client_by_ip(db, ip_address)
     if not client:
-        client = create_client(db, ip_address)
+        client = create_client(db, ip_address, username, password)
     
     client.tasks_completed += 1
     

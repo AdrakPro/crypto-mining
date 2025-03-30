@@ -3,12 +3,17 @@ import time
 
 BASE_URL = "http://127.0.0.1:8080"
 
+# Uzyskanie tokena JWT
+response = requests.post(f"{BASE_URL}/login", data={"username": "test", "password": "test"})
+token = response.json().get("access_token")
+headers = {"Authorization": f"Bearer {token}"}
+
 while True:
     try:
         response = requests.post(f"{BASE_URL}/ping")  # Wysyłamy POST
         print("Server response:", response.json())
 
-        task_response = requests.get(f"{BASE_URL}/task") #Pobranie Zadania
+        task_response = requests.get(f"{BASE_URL}/task", headers=headers) #Pobranie Zadania
         task = task_response.json()
 
         a, b = task["a"], task["b"] #Rozwiązanie Zadania przez klienta

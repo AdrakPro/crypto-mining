@@ -3,9 +3,12 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Get database URL from environment variable or use default
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost/crypto_mining")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Create SQLAlchemy engine
 engine = create_engine(DATABASE_URL)
@@ -21,6 +24,8 @@ class Client(Base):
     __tablename__ = "clients"
 
     id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, index=True)
+    password = Column(String)
     ip_address = Column(String, index=True)
     last_seen = Column(DateTime, default=datetime.utcnow)
     tasks_completed = Column(Integer, default=0)
@@ -29,6 +34,7 @@ class Client(Base):
 # Create tables
 def create_tables():
     Base.metadata.create_all(bind=engine)
+
 
 # Get database session
 def get_db():
