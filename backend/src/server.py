@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Header
+from fastapi import FastAPI, Depends, HTTPException, status, Header, Request
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel
 from typing import Optional
@@ -7,6 +7,8 @@ from security import verify_password, create_access_token, decode_token, secure_
 import os
 from dotenv import load_dotenv
 import secrets
+from collections import defaultdict
+import time
 
 load_dotenv()
 
@@ -80,7 +82,7 @@ async def get_current_user(token: str = Depends(security)):
 
 # Endpoints
 @app.post("/login", response_model=Token)
-def login(credentials: UserCredentials):
+def login(request: Request, credentials: UserCredentials):
     # Brute force check
     check_brute_force(request)
 
