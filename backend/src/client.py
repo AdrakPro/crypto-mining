@@ -6,7 +6,11 @@ import os
 from security import get_password_hash
 
 load_dotenv()
-# jeden klucz prywatny na serwerze, wiele dla użytkowników, kazdy klient i serwer jeden klucz prywatny i jeden publiczny, hashowanie json result, haslo na klucz prywatny, klucz generowac w locie? serwer tworzy klucz podczas startu i zapomina go, https bez cerytfikatu?
+# TODO
+# 1. Na razie klient wysyla czyste haslo do serwera. Ma zhashowac je przed wyslaniem i porownujemy hashe
+# 2. Odpowiedzi typu { status: "resolved" ... } powinny byc szyfrowane, tylko klient moze je zobaczyc. To co filinski mowil kazdy ma pare kluczy prywatnych i publicznych, generowane ich w locie
+# 3. Użycie HTTPS zamiast HTTP
+
 
 class APIClient:
     def __init__(self):
@@ -14,7 +18,6 @@ class APIClient:
         self.token = None
         self.username = os.getenv("CLIENT_USERNAME")
         self.password = os.getenv("CLIENT_PASSWORD")
-
 
     def authenticate(self):
         try:
