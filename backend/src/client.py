@@ -6,7 +6,7 @@ import os
 from security import get_password_hash
 
 load_dotenv()
-
+# jeden klucz prywatny na serwerze, wiele dla użytkowników, kazdy klient i serwer jeden klucz prywatny i jeden publiczny, hashowanie json result, haslo na klucz prywatny, klucz generowac w locie? serwer tworzy klucz podczas startu i zapomina go, https bez cerytfikatu?
 
 class APIClient:
     def __init__(self):
@@ -15,11 +15,6 @@ class APIClient:
         self.username = os.getenv("CLIENT_USERNAME")
         self.password = os.getenv("CLIENT_PASSWORD")
 
-        # For initial setup - generate hashed password
-        # GENERATE_HASH=1 python client.py
-        if os.getenv("GENERATE_HASH"):
-            print(f"Hashed password: {get_password_hash(self.password)}")
-            sys.exit(0)
 
     def authenticate(self):
         try:

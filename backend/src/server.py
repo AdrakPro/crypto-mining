@@ -128,10 +128,11 @@ def submit_result(result: Result, current_user: str = Depends(get_current_user))
 
         expected = tasks[current_user]["expected_sum"]
         if result.sum == expected:
-            response = {"status": "Correct!"}
+            response = {"status": "Correct"}
         else:
+            # response zahashowany
             response = {
-                "status": "Incorrect!",
+                "status": "Incorrect",
                 "expected": expected,
                 "received": result.sum,
             }
