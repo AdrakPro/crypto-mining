@@ -9,10 +9,21 @@ from dotenv import load_dotenv
 import secrets
 from collections import defaultdict
 import time
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
 app = FastAPI()
+
+# CORS CONFIGURATION for two different ports
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins="http://localhost:5173",
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all http methods
+    allow_headers=["*"],  # Allow all headers
+)
+
 security = HTTPBearer()
 
 # Brute Force Protection
