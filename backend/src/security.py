@@ -1,23 +1,26 @@
-from passlib.context import CryptContext
+#from passlib.context import CryptContext
 from jose.exceptions import JWTError
 from jose import jwt
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 import secrets
+import hashlib
 
 load_dotenv()
 
 # Password Hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+#pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_sha256_hash(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+#def verify_password(plain_password: str, hashed_password: str) -> bool:
+#    return pwd_context.verify(plain_password, hashed_password)
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+#def get_password_hash(password: str) -> str:
+#    return pwd_context.hash(password)
 
 
 # JWT Utilities

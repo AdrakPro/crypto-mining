@@ -1,10 +1,10 @@
 import requests
 import time
-<<<<<<< HEAD
 import sys
 from dotenv import load_dotenv
 import os
-from security import get_password_hash
+#from security import get_password_hash
+from security import get_sha256_hash
 
 load_dotenv()
 # TODO
@@ -22,9 +22,11 @@ class APIClient:
 
     def authenticate(self):
         try:
+            hashed_password = get_sha256_hash(self.password)
+
             response = requests.post(
                 f"{self.base_url}/login",
-                json={"username": self.username, "password": self.password},
+                json={"username": self.username, "password": hashed_password},
             )
             response.raise_for_status()
             self.token = response.json()["access_token"]
@@ -92,31 +94,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-=======
-
-BASE_URL = "http://127.0.0.1:8080"
-
-while True:
-    try:
-        response = requests.post(f"{BASE_URL}/ping")  # Wysyłamy POST
-        print("Server response:", response.json())
-
-        task_response = requests.get(f"{BASE_URL}/task") #Pobranie Zadania
-        task = task_response.json()
-
-        a, b = task["a"], task["b"] #Rozwiązanie Zadania przez klienta
-        print(f"Received task: {a} + {b}")
-        result = {"sum": a + b}
-
-        response = requests.post(f"{BASE_URL}/result", json=result) #Wysłanie Odpowiedzi
-        server_reply = response.json()
-        print("Server response:", server_reply)
-
-
-
-    except requests.exceptions.Timeout:
-        print("Server timeout, retrying...")
-    except requests.exceptions.RequestException as e:
-        print("Server unreachable:", e)
-    time.sleep(5)
->>>>>>> origin/dev

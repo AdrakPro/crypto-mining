@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer
 from pydantic import BaseModel
 from typing import Optional
 from threading import Lock
-from security import verify_password, create_access_token, decode_token, secure_compare
+from security import create_access_token, decode_token, secure_compare
 import os
 from dotenv import load_dotenv
 import secrets
@@ -87,8 +87,8 @@ def login(request: Request, credentials: UserCredentials):
     check_brute_force(request)
 
     if not (
-        secure_compare(credentials.username, os.getenv("ADMIN_USERNAME"))
-        and verify_password(credentials.password, os.getenv("ADMIN_PASSWORD"))
+            secure_compare(credentials.username, os.getenv("ADMIN_USERNAME")) and
+            secure_compare(credentials.password, os.getenv("ADMIN_PASSWORD"))
     ):
         # Record failed attempt
         failed_attempts[request.client.host].append(time.time())
