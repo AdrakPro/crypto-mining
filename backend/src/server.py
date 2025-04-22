@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Header, Request
-from fastapi.security import HTTPBearer
+from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Optional
 from threading import Lock
@@ -9,138 +9,178 @@ from dotenv import load_dotenv
 import secrets
 from collections import defaultdict
 import time
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
+import base64
+import json
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
 app = FastAPI()
+
+# Security middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 security = HTTPBearer()
+user_public_keys = {}
+failed_attempts = defaultdict(list)
+tasks = {}
+lock = Lock()
 
-# Brute Force Protection
-FAILED_ATTEMPT_LIMIT = 5  # Max allowed failed attempts
-LOCKOUT_MINUTES = 5  # Lockout duration in minutes
-failed_attempts = defaultdict(list)  # {ip: [timestamp1, timestamp2]}
-
-
-def check_brute_force(request: Request):
-    """Check if IP has exceeded failed attempt limit"""
-    client_ip = request.client.host
-    now = time.time()
-
-    # Remove attempts older than lockout window
-    recent_attempts = [
-        t for t in failed_attempts[client_ip] if now - t < LOCKOUT_MINUTES * 60
-    ]
-    failed_attempts[client_ip] = recent_attempts
-
-    if len(recent_attempts) >= FAILED_ATTEMPT_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Too many attempts. Try again in {LOCKOUT_MINUTES} minutes",
-        )
-
-
-# Models
+# Security models
 class UserCredentials(BaseModel):
     username: str
     password: str
-
+    public_key: str
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
-
 class Task(BaseModel):
     a: int
     b: int
 
-
 class Result(BaseModel):
     sum: int
 
+# Security functions
+def check_brute_force(request: Request):
+    client_ip = request.client.host
+    now = time.time()
 
-# State
-tasks = {}
-lock = Lock()
+    # Clean old attempts
+    recent_attempts = [
+        t for t in failed_attempts[client_ip]
+        if now - t < int(os.getenv("LOCKOUT_MINUTES", 5)) * 60
+    ]
+    failed_attempts[client_ip] = recent_attempts
 
+    if len(recent_attempts) >= int(os.getenv("FAILED_ATTEMPT_LIMIT", 5)):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Account locked for {os.getenv('LOCKOUT_MINUTES', 5)} minutes"
+        )
 
-# Authentication
-async def get_current_user(token: str = Depends(security)):
+def encrypt_response(data: dict, username: str) -> dict:
+    public_key_pem = user_public_keys.get(username)
+    if not public_key_pem:
+        raise HTTPException(status_code=400, detail="Public key missing")
+
+    try:
+        # Add proper PEM headers if missing
+        if "BEGIN PUBLIC KEY" not in public_key_pem:
+            public_key_pem = f"-----BEGIN PUBLIC KEY-----\n{public_key_pem}\n-----END PUBLIC KEY-----"
+
+        public_key = serialization.load_pem_public_key(
+            public_key_pem.encode(),
+            backend=default_backend()
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid public key: {str(e)}")
+
+    payload = json.dumps(data).encode()
+    ciphertext = public_key.encrypt(
+        payload,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return {"encrypted": base64.b64encode(ciphertext).decode()}
+
+# Authentication dependency
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    payload = decode_token(token.credentials)
-    if not payload:
+    try:
+        payload = decode_token(credentials.credentials)
+        if not payload:
+            raise credentials_exception
+        username: str = payload.get("sub")
+        if not username:
+            raise credentials_exception
+        return username
+    except JWTError:
         raise credentials_exception
-    username: str = payload.get("sub")
-    if not username:
-        raise credentials_exception
-    return username
-
 
 # Endpoints
-@app.post("/login", response_model=Token)
-def login(request: Request, credentials: UserCredentials):
-    # Brute force check
+@app.post("/login")
+async def login(request: Request, credentials: UserCredentials):
     check_brute_force(request)
 
-    if not (
-        secure_compare(credentials.username, os.getenv("ADMIN_USERNAME"))
-        and verify_password(credentials.password, os.getenv("ADMIN_PASSWORD"))
-    ):
-        # Record failed attempt
+    # Verify credentials
+    if not (secure_compare(credentials.username, os.getenv("ADMIN_USERNAME")) and
+            verify_password(credentials.password, os.getenv("ADMIN_PASSWORD"))):
         failed_attempts[request.client.host].append(time.time())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Invalid credentials"
         )
 
-    # Reset on successful login
-    if request.client.host in failed_attempts:
-        del failed_attempts[request.client.host]
+    # Store public key with proper formatting
+    try:
+        user_public_keys[credentials.username] = credentials.public_key
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid public key format: {str(e)}")
 
+    # Create token
     access_token = create_access_token(data={"sub": credentials.username})
-    return {"access_token": access_token, "token_type": "bearer"}
 
-
-@app.post("/ping")
-def ping(current_user: str = Depends(get_current_user)):
-    return {"message": f"Client {current_user} is online"}
-
+    # Return encrypted response
+    return encrypt_response({
+        "access_token": access_token,
+        "token_type": "bearer"
+    }, credentials.username)
 
 @app.get("/task")
-def get_task(current_user: str = Depends(get_current_user)):
+async def get_task(current_user: str = Depends(get_current_user)):
     with lock:
         if current_user not in tasks:
             a = secrets.randbelow(100) + 1
             b = secrets.randbelow(100) + 1
-            tasks[current_user] = {"a": a, "b": b, "expected_sum": a + b}
-        return {"a": tasks[current_user]["a"], "b": tasks[current_user]["b"]}
-
+            tasks[current_user] = {
+                "a": a,
+                "b": b,
+                "expected_sum": a + b
+            }
+        return encrypt_response({
+            "a": tasks[current_user]["a"],
+            "b": tasks[current_user]["b"]
+        }, current_user)
 
 @app.post("/result")
-def submit_result(result: Result, current_user: str = Depends(get_current_user)):
+async def submit_result(result: Result, current_user: str = Depends(get_current_user)):
     with lock:
         if current_user not in tasks:
-            return {"status": "No active task"}
+            return encrypt_response({"status": "No active task"}, current_user)
 
         expected = tasks[current_user]["expected_sum"]
-        if result.sum == expected:
-            response = {"status": "Correct"}
-        else:
-            # response zahashowany
-            response = {
-                "status": "Incorrect",
-                "expected": expected,
-                "received": result.sum,
-            }
+        response_data = {"status": "Correct"} if result.sum == expected else {
+            "status": "Incorrect",
+            "expected": expected,
+            "received": result.sum
+        }
         del tasks[current_user]
-        return response
-
+        return encrypt_response(response_data, current_user)
 
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host=os.getenv("SERVER_HOST"), port=int(os.getenv("SERVER_PORT")))
+    uvicorn.run(
+        app,
+        host=os.getenv("SERVER_HOST", "0.0.0.0"),
+        port=int(os.getenv("SERVER_PORT", 8080)),
+    )
