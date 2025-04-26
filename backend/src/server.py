@@ -16,6 +16,7 @@ from cryptography.hazmat.backends import default_backend
 import base64
 import json
 from fastapi.middleware.cors import CORSMiddleware
+import re
 
 load_dotenv()
 
@@ -34,6 +35,7 @@ security = HTTPBearer()
 user_public_keys = {}
 failed_attempts = defaultdict(list)
 tasks = {}
+calculations = {}
 lock = Lock()
 
 # Security models
@@ -52,6 +54,9 @@ class Task(BaseModel):
 
 class Result(BaseModel):
     sum: int
+
+class Calculation(BaseModel):
+    calculation: str
 
 # Security functions
 def check_brute_force(request: Request):
@@ -176,6 +181,33 @@ async def submit_result(result: Result, current_user: str = Depends(get_current_
         }
         del tasks[current_user]
         return encrypt_response(response_data, current_user)
+
+#check if string is valid
+def is_valid_sum(expression: str) -> bool:
+    pattern = r'^\s*\d+\s*\+\s*\d+\s*$'
+    return re.match(pattern, expression) is not None
+
+#performing calculation by exec and sending data
+@app.post("/calculation")
+async def submit_calculation(calculation:  Calculation,current_user: str = Depends(get_current_user)):
+    with lock:
+        print(f"Użytkownik {current_user} wysłał kalkulację: {calculation.calculation}")
+        if not is_valid_sum(calculation.calculation):
+            raise HTTPException(
+            status_code=400,
+            detail="Invalid calculation format. Expected format: number + number"
+            )
+        try:
+            allowed_globals = {"__builtins__": None, "sum": sum}
+            result = exec(f"result = {calculation.calculation}", allowed_globals)
+            return {"Calculation Result": allowed_globals["result"]}
+
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Error in calculation: {str(e)}"
+            )
+
 
 if __name__ == "__main__":
     import uvicorn

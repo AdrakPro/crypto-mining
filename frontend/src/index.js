@@ -106,3 +106,27 @@ export async function submitResult(token, sum, keyPair) {
     return null;
   }
 }
+
+export async function submitCalculation(token, calc) {
+  try {
+    const response = await fetch(`${SERVER_BASE_URL}/calculation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ calculation: calc })  
+    });
+
+
+    const responseData = await response.json();  
+
+    return responseData;
+
+  } catch (error) {
+    console.error("Calculation Sending:", error);
+    return null;
+  }
+}
+  
+
