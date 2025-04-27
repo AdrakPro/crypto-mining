@@ -120,7 +120,7 @@ export async function submitCalculation(token, calc) {
 
 
     const responseData = await response.json();  
-
+    responseData = decode(responseData)
     return responseData;
 
   } catch (error) {
