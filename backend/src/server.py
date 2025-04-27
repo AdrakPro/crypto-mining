@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import JWTError
 from pydantic import BaseModel
 from typing import Optional
 from threading import Lock
@@ -200,7 +201,7 @@ async def submit_calculation(calculation:  Calculation,current_user: str = Depen
         try:
             allowed_globals = {"__builtins__": None, "sum": sum}
             result = exec(f"result = {calculation.calculation}", allowed_globals)
-            return {"Calculation Result": allowed_globals["result"]}
+            return encrypt_response({"Calculation Result": allowed_globals["result"]},current_user)
 
         except Exception as e:
             raise HTTPException(
