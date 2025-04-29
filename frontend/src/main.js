@@ -1,4 +1,4 @@
-import { authenticate, getTask, submitResult } from './index.js';
+import { authenticate, getTask, submitResult, submitCalculation} from './index.js';
 
 document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("login-form");
@@ -11,6 +11,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const taskContainer = document.getElementById("task-container");
   const responseContainer = document.getElementById("response");
   const taskHistoryContainer = document.getElementById("task-history");
+  const calculationForm = document.getElementById("calculation-form");
+  const calculationInput = document.getElementById("calculation");
+  const calculationButton = document.getElementById("calculation-btn");
 
   let currentToken = null;
   let currentKeyPair = null;
@@ -25,6 +28,32 @@ document.addEventListener("DOMContentLoaded", () => {
       currentKeyPair = authData.keyPair;
       loginForm.style.display = "none";
       taskDashboard.style.display = "block";
+    }
+  });
+
+  calculationButton.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const calc = calculationInput.value;
+    if (!calc) {
+      alert("Please enter a calculation.");
+      return;
+    }
+
+    responseContainer.innerHTML = "Processing...";
+
+    const result = await submitCalculation(currentToken, calc, currentKeyPair);
+
+    if (result && !result.error) {
+      // Display the result
+      responseContainer.innerHTML = `Calculation Result: ${result.result}`;
+
+      // Optionally add to history
+      const historyEntry = document.createElement("div");
+      historyEntry.className = "history-entry";
+      historyEntry.textContent = `Calculation: ${calc} = ${result.result}`;
+      taskHistoryContainer.appendChild(historyEntry);
+    } else {
+      responseContainer.innerHTML = `Error: ${result?.error || "Unknown error"}`;
     }
   });
 

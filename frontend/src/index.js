@@ -106,3 +106,35 @@ export async function submitResult(token, sum, keyPair) {
     return null;
   }
 }
+
+export async function submitCalculation(token, calc, keyPair) {
+  try {
+    const response = await fetch(`${SERVER_BASE_URL}/calculation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ calculation: calc })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Calculation failed");
+    }
+
+    const responseData = await response.json();
+
+    // Handle encrypted response
+    if (responseData.encrypted) {
+      const decryptedData = await decryptData(responseData.encrypted, keyPair.privateKey);
+      return JSON.parse(new TextDecoder().decode(decryptedData));
+    }
+
+    return responseData;
+
+  } catch (error) {
+    console.error("Calculation Error:", error);
+    return { error: error.message };
+  }
+}
