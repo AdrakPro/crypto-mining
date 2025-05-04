@@ -1,9 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import update
+from datetime import datetime
+from pydantic import BaseModel, EmailStr
 from typing import Optional
 from threading import Lock
-from security import verify_password, create_access_token, decode_token, secure_compare
+from security import verify_password, create_access_token, decode_token, secure_compare, get_password_hash
+from database import get_db
+from models import User
 import os
 from dotenv import load_dotenv
 import secrets
@@ -34,7 +40,6 @@ app.add_middleware(
 )
 
 security = HTTPBearer()
-user_public_keys = {}
 failed_attempts = defaultdict(list)
 calculations = {}
 tasks = {}
@@ -62,9 +67,19 @@ class UserCredentials(BaseModel):
     public_key: str
 
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+    public_key: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    is_admin: bool
+    created_at: datetime
 
 
 class Task(BaseModel):
@@ -99,7 +114,7 @@ def check_brute_force(request: Request):
 
 
 def encrypt_response(data: dict, username: str) -> dict:
-    public_key_pem = user_public_keys.get(username)
+    public_key_pem = data.get("public_key")
     if not public_key_pem:
         raise HTTPException(status_code=400, detail="Public key missing")
 
@@ -131,10 +146,11 @@ def encrypt_response(data: dict, username: str) -> dict:
 # Authentication dependency
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-):
+    db: AsyncSession = Depends(get_db)
+) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid credentials",
+        detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -144,68 +160,119 @@ async def get_current_user(
         username: str = payload.get("sub")
         if not username:
             raise credentials_exception
-        return username
-    except JWTError:
+
+        result = await db.execute(select(User).where(User.username == username))
+        user = result.scalar_one_or_none()
+        
+        if not user or not user.is_active:
+            raise credentials_exception
+        return user
+    except Exception:
         raise credentials_exception
 
 
+@app.post("/register", response_model=UserResponse)
+async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
+    # Check if username or email already exists
+    result = await db.execute(
+        select(User).where(
+            (User.username == user_data.username) | 
+            (User.email == user_data.email)
+        )
+    )
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username or email already registered"
+        )
+
+    # Create new user
+    hashed_password = get_password_hash(user_data.password)
+    new_user = User(
+        username=user_data.username,
+        email=user_data.email,
+        hashed_password=hashed_password,
+        public_key=user_data.public_key
+    )
+    
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    
+    return UserResponse(
+        id=new_user.id,
+        username=new_user.username,
+        email=new_user.email,
+        is_admin=new_user.is_admin,
+        created_at=new_user.created_at
+    )
+
+
 @app.post("/login")
-async def login(request: Request, credentials: UserCredentials):
+async def login(
+    request: Request, 
+    credentials: UserCredentials,
+    db: AsyncSession = Depends(get_db)
+):
     check_brute_force(request)
 
-    # Verify credentials
-    if not (
-        secure_compare(credentials.username, os.getenv("ADMIN_USERNAME"))
-        and verify_password(credentials.password, os.getenv("ADMIN_PASSWORD"))
-    ):
+    # Find user in database
+    result = await db.execute(select(User).where(User.username == credentials.username))
+    user = result.scalar_one_or_none()
+
+    if not user or not verify_password(credentials.password, user.hashed_password):
         failed_attempts[request.client.host].append(time.time())
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
         )
 
-    # Store public key with proper formatting
-    try:
-        user_public_keys[credentials.username] = credentials.public_key
-    except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"Invalid public key format: {str(e)}"
-        )
+    # Update user's public key and last login time
+    user.public_key = credentials.public_key
+    user.last_login = datetime.utcnow()
+    await db.commit()
 
-    # Create token
-    access_token = create_access_token(data={"sub": credentials.username})
+    # Create access token
+    access_token = create_access_token(
+        data={
+            "sub": user.username,
+            "user_id": user.id,
+            "is_admin": user.is_admin
+        }
+    )
 
-    # Return encrypted response
     return encrypt_response(
-        {"access_token": access_token, "token_type": "bearer"}, credentials.username
+        {"access_token": access_token, "token_type": "bearer"},
+        credentials.username
     )
 
 
 @app.get("/task")
-async def get_task(current_user: str = Depends(get_current_user)):
+async def get_task(current_user: User = Depends(get_current_user)):
     with lock:
-        if current_user not in tasks:
+        if current_user.username not in tasks:
             a = secrets.randbelow(100) + 1
             b = secrets.randbelow(100) + 1
-            tasks[current_user] = {"a": a, "b": b, "expected_sum": a + b}
+            tasks[current_user.username] = {"a": a, "b": b, "expected_sum": a + b}
         return encrypt_response(
-            {"a": tasks[current_user]["a"], "b": tasks[current_user]["b"]}, current_user
+            {"a": tasks[current_user.username]["a"], "b": tasks[current_user.username]["b"]}, current_user.username
         )
 
 
 @app.post("/result")
-async def submit_result(result: Result, current_user: str = Depends(get_current_user)):
+async def submit_result(result: Result, current_user: User = Depends(get_current_user)):
     with lock:
-        if current_user not in tasks:
-            return encrypt_response({"status": "No active task"}, current_user)
+        if current_user.username not in tasks:
+            return encrypt_response({"status": "No active task"}, current_user.username)
 
-        expected = tasks[current_user]["expected_sum"]
+        expected = tasks[current_user.username]["expected_sum"]
         response_data = (
             {"status": "Correct"}
             if result.sum == expected
             else {"status": "Incorrect", "expected": expected, "received": result.sum}
         )
-        del tasks[current_user]
-        return encrypt_response(response_data, current_user)
+        del tasks[current_user.username]
+        return encrypt_response(response_data, current_user.username)
 
 
 def is_safe_ast(tree):
@@ -268,11 +335,11 @@ def validate_expression(expression):
 
 @app.post("/calculation")
 async def submit_calculation(
-    calculation: Calculation, current_user: str = Depends(get_current_user)
+    calculation: Calculation, current_user: User = Depends(get_current_user)
 ):
     with lock:
         try:
-            print(f"User {current_user} submitted a calculation request")
+            print(f"User {current_user.username} submitted a calculation request")
 
             expression = calculation.calculation
 
@@ -300,20 +367,20 @@ async def submit_calculation(
                 )
                 future.result(timeout=2)
             except TimeoutError:
-                logger.error(f"Calculation timeout from {current_user}")
+                logger.error(f"Calculation timeout from {current_user.username}")
                 raise HTTPException(status_code=400, detail="Calculation timeout")
             except Exception as e:
-                logger.error(f"Calculation error from {current_user}: {e}")
+                logger.error(f"Calculation error from {current_user.username}: {e}")
                 raise HTTPException(status_code=400, detail="Calculation error")
 
             result = restricted_locals.get("result")
             if not isinstance(result, (int, float)):
-                logger.error(f"Non-numeric result from {current_user}")
+                logger.error(f"Non-numeric result from {current_user.username}")
                 raise HTTPException(status_code=400, detail="Invalid result type")
 
             print(f"Result {result}")
 
-            return encrypt_response({"result": result}, current_user)
+            return encrypt_response({"result": result}, current_user.username)
 
         except Exception as e:
             print(f"Error processing calculation: {str(e)}")

@@ -4,3 +4,7 @@ requests==2.28.2
 bcrypt
 passlib[bcrypt]==1.7.4
 black
+SQLAlchemy==2.0.28
+alembic==1.13.1
+psycopg2-binary==2.9.9
+asyncpg==0.29.0
