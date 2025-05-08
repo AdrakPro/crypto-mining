@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Crypto Mining - Klient</title>
+</head>
+<body>
+  <h1>Witaj!</h1>
+
+  <div id="menu">
+    <button onclick="showRegister()">Rejestracja</button>
+    <button onclick="showLogin()">Logowanie</button>
+  </div>
+
+  <div id="registerForm" style="display: none;">
+    <h2>Rejestracja</h2>
+    <form id="formRegister">
+      <input type="text" id="username" placeholder="Nazwa użytkownika" required><br>
+      <input type="password" id="password" placeholder="Hasło" required><br>
+      <textarea id="publicKey" placeholder="Klucz publiczny PEM" rows="6" required></textarea><br>
+      <button type="submit">Zarejestruj</button>
+    </form>
+    <p id="registerMessage"></p>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>

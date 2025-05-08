@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Optional
 from threading import Lock
-from security import verify_password, create_access_token, decode_token, secure_compare
+from security import verify_password, create_access_token, decode_token, secure_compare, hash_password
 import os
 from dotenv import load_dotenv
 import secrets
@@ -17,6 +17,12 @@ import base64
 import json
 from fastapi.middleware.cors import CORSMiddleware
 
+from sqlalchemy.orm import Session
+from db import SessionLocal,  Base, engine
+from models import User
+from schemas import UserCreate
+
+Base.metadata.create_all(bind=engine)
 load_dotenv()
 
 app = FastAPI()
@@ -184,3 +190,18 @@ if __name__ == "__main__":
         host=os.getenv("SERVER_HOST", "0.0.0.0"),
         port=int(os.getenv("SERVER_PORT", 8080)),
     )
+
+@app.post("/register")
+def register(user: UserCreate):
+    db: Session = SessionLocal()
+    if db.query(User).filter(User.username == user.username).first():
+        raise HTTPException(status_code=400, detail="Username already registered")
+    new_user = User(
+        username=user.username,
+        hashed_password=hash_password(user.password),
+        public_key=user.public_key
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"msg": "User registered successfully"}
