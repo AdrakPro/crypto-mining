@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
   <meta charset="UTF-8">
   <title>Crypto Mining - Klient</title>
@@ -12,17 +12,40 @@
     <button onclick="showLogin()">Logowanie</button>
   </div>
 
+  <!-- Rejestracja -->
   <div id="registerForm" style="display: none;">
     <h2>Rejestracja</h2>
     <form id="formRegister">
       <input type="text" id="username" placeholder="Nazwa użytkownika" required><br>
       <input type="password" id="password" placeholder="Hasło" required><br>
-      <textarea id="publicKey" placeholder="Klucz publiczny PEM" rows="6" required></textarea><br>
       <button type="submit">Zarejestruj</button>
     </form>
     <p id="registerMessage"></p>
+
+    <div id="keysDisplay" style="display: none;">
+      <h3>Twoje klucze (Zapisz je!)</h3>
+      <label>Klucz publiczny:</label><br>
+      <textarea id="generatedPublicKey" rows="6" readonly></textarea><br>
+      <label>Klucz prywatny:</label><br>
+      <textarea id="generatedPrivateKey" rows="10" readonly></textarea><br>
+      <button onclick="downloadPrivateKey()">Pobierz klucz prywatny</button>
+    </div>
   </div>
+
+<!-- Logowanie -->
+<div id="loginForm" style="display: none;">
+  <h2>Logowanie</h2>
+  <form id="formLogin">
+    <input type="text" id="loginUsername" placeholder="Nazwa użytkownika" required><br>
+    <input type="password" id="loginPassword" placeholder="Hasło" required><br>
+    <textarea id="loginPrivateKey" placeholder="Wprowadź swój klucz prywatny" rows="6" style="width: 100%;" required></textarea><br>
+    <button type="submit">Zaloguj</button>
+  </form>
+  <p id="loginMessage"></p>
+</div>
+
 
   <script src="main.js"></script>
 </body>
 </html>
+

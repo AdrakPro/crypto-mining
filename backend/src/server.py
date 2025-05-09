@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from db import SessionLocal,  Base, engine
 from models import User
-from schemas import UserCreate
+from schemas import UserCreate, UserLogin
 
 Base.metadata.create_all(bind=engine)
 load_dotenv()
@@ -205,3 +205,38 @@ def register(user: UserCreate):
     db.commit()
     db.refresh(new_user)
     return {"msg": "User registered successfully"}
+
+@app.post("/login-db")
+def login_db(request: Request, credentials: UserLogin):
+    check_brute_force(request)
+
+    db: Session = SessionLocal()
+    user = db.query(User).filter(User.username == credentials.username).first()
+    if not user or not verify_password(credentials.password, user.hashed_password):
+        failed_attempts[request.client.host].append(time.time())
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
+
+    # Pobierz publiczny klucz z bazy danych
+    public_key_pem = user.public_key
+    if not public_key_pem:
+        raise HTTPException(status_code=400, detail="Public key missing in database")
+
+    # Przechowaj klucz publiczny w pamięci
+    user_public_keys[credentials.username] = public_key_pem
+
+    # Wygeneruj token
+    access_token = create_access_token(data={"sub": credentials.username})
+
+    # Teraz zwróć odpowiedź bez szyfrowania, bo mamy klucz publiczny w bazie
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
+
+
+
+
+
