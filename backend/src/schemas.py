@@ -25,3 +25,7 @@ class Task(BaseModel):
 
 class Result(BaseModel):
     sum: int
+
+class Message(BaseModel):
+    to_user: str
+    content: str

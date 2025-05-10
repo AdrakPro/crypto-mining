@@ -32,20 +32,25 @@
     </div>
   </div>
 
-<!-- Logowanie -->
-<div id="loginForm" style="display: none;">
-  <h2>Logowanie</h2>
-  <form id="formLogin">
-    <input type="text" id="loginUsername" placeholder="Nazwa użytkownika" required><br>
-    <input type="password" id="loginPassword" placeholder="Hasło" required><br>
-    <textarea id="loginPrivateKey" placeholder="Wprowadź swój klucz prywatny" rows="6" style="width: 100%;" required></textarea><br>
-    <button type="submit">Zaloguj</button>
-  </form>
-  <p id="loginMessage"></p>
-</div>
+  <!-- Logowanie -->
+  <div id="loginForm" style="display: block;">
+    <h2>Logowanie</h2>
+    <form id="formLogin">
+      <input type="text" id="loginUsername" placeholder="Nazwa użytkownika" required><br>
+      <input type="password" id="loginPassword" placeholder="Hasło" required><br>
+      <textarea id="loginPrivateKey" placeholder="Wprowadź swój klucz prywatny" rows="6" style="width: 100%;" required></textarea><br>
+      <button id="loginBtn" type="button">Zaloguj</button>
+    </form>
+    <p id="loginMessage"></p>
+  </div>
 
+  <!-- Pole na wynik -->
+  <div id="resultDisplay" style="display: none; margin-top: 20px; font-size: 16px; color: #333;">
+    <h3>Wynik:</h3>
+    <pre id="resultContent"></pre>
+  </div>
 
-  <script src="main.js"></script>
+  <script type="module" src="./main.js"></script>
 </body>
 </html>
 

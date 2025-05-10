@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from db import SessionLocal,  Base, engine
 from models import User, ActiveSession
-from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result
+from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result, Message
 
 Base.metadata.create_all(bind=engine)
 load_dotenv()
@@ -221,10 +221,10 @@ def login_db(request: Request, credentials: UserLogin):
     user_public_keys[credentials.username] = public_key_pem
     access_token = create_access_token(data={"sub": credentials.username})
 
-    return {
+    return encrypt_response({
         "access_token": access_token,
         "token_type": "bearer"
-    }
+    }, credentials.username)
 
 
 @app.get("/sessions")
@@ -238,6 +238,40 @@ def list_sessions():
         for s in active_sessions
     ]
 
+# Pamięciowy inbox dla każdego użytkownika
+user_inboxes = {}
+
+@app.post("/send")
+def send_message(message: Message):
+    if message.to_user not in user_public_keys:
+        raise HTTPException(status_code=404, detail="User not available")
+
+    encrypted_msg = encrypt_response({"message": message.content}, message.to_user)
+
+    # Zapisz wiadomość w "skrzynce odbiorczej"
+    if message.to_user not in user_inboxes:
+        user_inboxes[message.to_user] = []
+
+    user_inboxes[message.to_user].append(encrypted_msg)
+
+    return {"status": "message stored"}
+from fastapi import Request
+
+@app.post("/get-message")
+async def get_message(request: Request):
+    body = await request.json()
+
+    if "encrypted" not in body:
+        raise HTTPException(status_code=400, detail="Missing encrypted data")
+
+    # Odszyfruj dane
+    decrypted = decrypt_request(body["encrypted"])  # powinno dać np. {"username": "user1"}
+    username = decrypted.get("username")
+
+    if username not in user_inboxes or not user_inboxes[username]:
+        raise HTTPException(status_code=404, detail="No messages")
+
+    return encrypt_response(user_inboxes[username].pop(0), username)
 
 
 

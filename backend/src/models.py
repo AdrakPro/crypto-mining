@@ -19,3 +19,5 @@ class ActiveSession(Base):
     ip_address = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
+
+

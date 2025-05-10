@@ -1,4 +1,4 @@
-import { authenticate, getTask, submitResult, getSessions } from './index.js';
+import { authenticate, getTask, submitResult, getSessions, sendMessage } from './index.js';
 
 document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("login-form");
@@ -13,6 +13,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const taskHistoryContainer = document.getElementById("task-history");
   const loadSessionsButton = document.getElementById("load-sessions");
   const sessionsList = document.getElementById("sessions-list");
+  const userSelect = document.getElementById("user-select");
+  const messageInput = document.getElementById("message-input");
+  const sendMessageButton = document.getElementById("send-message");
+  const messageResponse = document.getElementById("message-response");
 
   let currentToken = null;
   let currentKeyPair = null;
@@ -61,14 +65,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 👇 TERAZ poprawnie wewnątrz DOMContentLoaded
   loadSessionsButton.addEventListener("click", async () => {
     const sessions = await getSessions();
 
     sessionsList.innerHTML = "";
+    userSelect.innerHTML = "";
 
     if (sessions.length === 0) {
       sessionsList.innerHTML = "<li>Brak aktywnych sesji</li>";
+      const option = document.createElement("option");
+      option.textContent = "Brak aktywnych użytkowników";
+      userSelect.appendChild(option);
       return;
     }
 
@@ -76,7 +83,30 @@ document.addEventListener("DOMContentLoaded", () => {
       const li = document.createElement("li");
       li.textContent = `${session.username} @ ${session.ip} - ${session.timestamp}`;
       sessionsList.appendChild(li);
+
+      const option = document.createElement("option");
+      option.value = session.username;
+      option.textContent = session.username;
+      userSelect.appendChild(option);
     });
   });
+
+  sendMessageButton.addEventListener("click", async () => {
+    const recipient = userSelect.value;
+    const message = messageInput.value;
+
+    if (!recipient || !message) {
+      messageResponse.textContent = "Wybierz użytkownika i wpisz wiadomość.";
+      return;
+    }
+
+    try {
+      const response = await sendMessage(recipient, message, currentToken);
+      messageResponse.textContent = `Wysłano: ${response.status || "OK"}`;
+    } catch (err) {
+      messageResponse.textContent = `Błąd: ${err.message}`;
+    }
+  });
 });
+
 
