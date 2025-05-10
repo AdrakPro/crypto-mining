@@ -19,8 +19,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.orm import Session
 from db import SessionLocal,  Base, engine
-from models import User
-from schemas import UserCreate, UserLogin
+from models import User, ActiveSession
+from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result
 
 Base.metadata.create_all(bind=engine)
 load_dotenv()
@@ -30,11 +30,12 @@ app = FastAPI()
 # Security middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+active_sessions = [] #Aktywne sesje usera
 
 security = HTTPBearer()
 user_public_keys = {}
@@ -42,22 +43,6 @@ failed_attempts = defaultdict(list)
 tasks = {}
 lock = Lock()
 
-# Security models
-class UserCredentials(BaseModel):
-    username: str
-    password: str
-    public_key: str
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-class Task(BaseModel):
-    a: int
-    b: int
-
-class Result(BaseModel):
-    sum: int
 
 # Security functions
 def check_brute_force(request: Request):
@@ -206,6 +191,7 @@ def register(user: UserCreate):
     db.refresh(new_user)
     return {"msg": "User registered successfully"}
 
+
 @app.post("/login-db")
 def login_db(request: Request, credentials: UserLogin):
     check_brute_force(request)
@@ -219,22 +205,40 @@ def login_db(request: Request, credentials: UserLogin):
             detail="Invalid credentials"
         )
 
-    # Pobierz publiczny klucz z bazy danych
+    # Zapisz sesję w pamięci
+    client_ip = request.client.host
+    active_sessions.append({
+        "username": user.username,
+        "ip": client_ip,
+        "timestamp": time.time()
+    })
+
+    # Pobierz klucz publiczny
     public_key_pem = user.public_key
     if not public_key_pem:
         raise HTTPException(status_code=400, detail="Public key missing in database")
 
-    # Przechowaj klucz publiczny w pamięci
     user_public_keys[credentials.username] = public_key_pem
-
-    # Wygeneruj token
     access_token = create_access_token(data={"sub": credentials.username})
 
-    # Teraz zwróć odpowiedź bez szyfrowania, bo mamy klucz publiczny w bazie
     return {
         "access_token": access_token,
         "token_type": "bearer"
     }
+
+
+@app.get("/sessions")
+def list_sessions():
+    return [
+        {
+            "username": s["username"],
+            "ip": s["ip"],
+            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(s["timestamp"]))
+        }
+        for s in active_sessions
+    ]
+
+
 
 
 

@@ -1,4 +1,4 @@
-import { authenticate, getTask, submitResult } from './index.js';
+import { authenticate, getTask, submitResult, getSessions } from './index.js';
 
 document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("login-form");
@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const taskContainer = document.getElementById("task-container");
   const responseContainer = document.getElementById("response");
   const taskHistoryContainer = document.getElementById("task-history");
+  const loadSessionsButton = document.getElementById("load-sessions");
+  const sessionsList = document.getElementById("sessions-list");
 
   let currentToken = null;
   let currentKeyPair = null;
@@ -58,4 +60,23 @@ document.addEventListener("DOMContentLoaded", () => {
       currentTask = null;
     }
   });
+
+  // 👇 TERAZ poprawnie wewnątrz DOMContentLoaded
+  loadSessionsButton.addEventListener("click", async () => {
+    const sessions = await getSessions();
+
+    sessionsList.innerHTML = "";
+
+    if (sessions.length === 0) {
+      sessionsList.innerHTML = "<li>Brak aktywnych sesji</li>";
+      return;
+    }
+
+    sessions.forEach(session => {
+      const li = document.createElement("li");
+      li.textContent = `${session.username} @ ${session.ip} - ${session.timestamp}`;
+      sessionsList.appendChild(li);
+    });
+  });
 });
+

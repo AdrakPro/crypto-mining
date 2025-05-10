@@ -106,3 +106,15 @@ export async function submitResult(token, sum, keyPair) {
     return null;
   }
 }
+
+export async function getSessions() {
+  try {
+    const response = await fetch(`${SERVER_BASE_URL}/sessions`);
+    if (!response.ok) throw new Error("Failed to fetch sessions");
+
+    return await response.json();
+  } catch (err) {
+    console.error("Error fetching sessions:", err);
+    return [];
+  }
+}
