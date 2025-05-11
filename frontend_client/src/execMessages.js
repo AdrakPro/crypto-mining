@@ -1,38 +1,62 @@
-// Funkcja do odbierania wiadomości
+import { decryptData } from "./crypto.js";
+
 export async function receiveMessage() {
   try {
-    const accessToken = sessionStorage.getItem("accessToken");
-
-    if (!accessToken) {
-      console.error("Brak tokenu dostępu w pamięci.");
+    const token = sessionStorage.getItem("accessToken")
+    if (!token) {
+      console.error("Brak tokenu dostępu.");
       return;
     }
 
-    // Wysyłamy token w nagłówkach autentykacji
     const response = await fetch("http://localhost:8080/get-message", {
-      method: "GET", // Możesz użyć POST, jeśli musisz wysłać dodatkowe dane
+      method: "POST",
       headers: {
-        "Authorization": `Bearer ${accessToken}`
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
       }
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      console.log("Otrzymana wiadomość:", data.message);
-
-      // Wyświetlamy wiadomość w interfejsie
-      document.getElementById("resultContent").innerText = data.message;
-    } else {
-      console.error("Błąd pobierania wiadomości:", response.status);
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Błąd pobierania wiadomości:", errorData.detail || response.status);
+      return;
     }
+
+    const data = await response.json();
+    const encryptedMessage = data.encrypted;
+
+    if (!encryptedMessage) {
+      console.error("Brak danych zaszyfrowanych w odpowiedzi.");
+      return;
+    }
+
+    const decrypted = await decryptData(encryptedMessage);
+    document.getElementById("resultContent").innerText = decrypted;
+
+    console.log("Odebrana wiadomość:", decrypted);
+
+
+  try {
+    const result = eval(decrypted); // ⚠️ Uwaga: używaj tylko jeśli masz 100% kontroli nad wiadomościami
+    console.log("Wynik wykonania kodu:", result);
+    document.getElementById("resultContent").innerText = `Kod: ${decrypted}\nWynik: ${result}`;
+  } catch (e) {
+    console.error("Błąd wykonania kodu:", e);
+    document.getElementById("resultContent").innerText = `Kod: ${decrypted}\nBłąd: ${e.message}`;
+  }
+
+
   } catch (error) {
     console.error("Błąd podczas odbierania wiadomości:", error);
   }
 }
 
+
+
+
 // Uruchomienie cyklicznego odbierania wiadomości
 export async function startReceivingMessages() {
   setInterval(() => {
     receiveMessage();
-  }, 5000); // Co 5 sekund pobieraj nowe wiadomości
+  }, 1000); // Co 5 sekund pobieraj nowe wiadomości
 }

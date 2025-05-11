@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from db import SessionLocal,  Base, engine
 from models import User, ActiveSession
 from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result, Message
+from jose import JWTError
 
 Base.metadata.create_all(bind=engine)
 load_dotenv()
@@ -258,20 +259,11 @@ def send_message(message: Message):
 from fastapi import Request
 
 @app.post("/get-message")
-async def get_message(request: Request):
-    body = await request.json()
-
-    if "encrypted" not in body:
-        raise HTTPException(status_code=400, detail="Missing encrypted data")
-
-    # Odszyfruj dane
-    decrypted = decrypt_request(body["encrypted"])  # powinno dać np. {"username": "user1"}
-    username = decrypted.get("username")
-
-    if username not in user_inboxes or not user_inboxes[username]:
+async def get_message(current_user: str = Depends(get_current_user)):
+    if current_user not in user_inboxes or not user_inboxes[current_user]:
         raise HTTPException(status_code=404, detail="No messages")
 
-    return encrypt_response(user_inboxes[username].pop(0), username)
+    return encrypt_response(user_inboxes[current_user].pop(0), current_user)
 
 
 
