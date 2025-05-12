@@ -1,5 +1,16 @@
 import { decryptData } from "./crypto.js";
 
+const worker = new Worker("sandboxWorker.js");
+
+worker.onmessage = function(event) {
+  const resultArea = document.getElementById("resultContent");
+  if (event.data.error) {
+    resultArea.innerText = `Błąd: ${event.data.error}`;
+  } else {
+    resultArea.innerText = `Wynik: ${event.data.result}`;
+  }
+};
+
 export async function receiveMessage() {
   try {
     const token = sessionStorage.getItem("accessToken");
@@ -25,6 +36,7 @@ export async function receiveMessage() {
     }
 
     const decrypted = await decryptData(data.encrypted);
+
     let parsed;
     try {
       parsed = JSON.parse(decrypted);
@@ -33,13 +45,7 @@ export async function receiveMessage() {
     }
 
     const code = parsed.message;
-
-    try {
-      const result = eval(code);
-      document.getElementById("resultContent").innerText = `Kod: ${code}\nWynik: ${result}`;
-    } catch (e) {
-      document.getElementById("resultContent").innerText = `Kod: ${code}\nBłąd: ${e.message}`;
-    }
+    worker.postMessage(code);
 
   } catch (error) {
     return;
@@ -51,4 +57,3 @@ export async function startReceivingMessages() {
     receiveMessage();
   }, 1000);
 }
-
