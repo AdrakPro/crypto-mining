@@ -261,10 +261,9 @@ from fastapi import Request
 @app.post("/get-message")
 async def get_message(current_user: str = Depends(get_current_user)):
     if current_user not in user_inboxes or not user_inboxes[current_user]:
-        raise HTTPException(status_code=404, detail="No messages")
+        return {"message": None}  # lub np. {"status": "no_message"}
 
-    return encrypt_response(user_inboxes[current_user].pop(0), current_user)
-
+    return user_inboxes[current_user].pop(0)
 
 
 
