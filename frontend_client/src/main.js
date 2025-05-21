@@ -3,7 +3,7 @@ import { receiveMessage } from "./execMessages.js";
 import { registerUser } from "./register.js"; // Import rejestracji
 import { loginUser } from "./login.js";
 
-const backendUrl = "http://localhost:8080";
+const backendUrl = "http://0.0.0.0:8080";
 
 // Podpinamy nasłuchiwanie do przycisków
 document.getElementById("loginBtn").addEventListener("click", loginUser);

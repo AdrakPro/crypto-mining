@@ -1,6 +1,8 @@
-python-dotenv==1.0.0
-python-jose[cryptography]==3.3.0
-requests==2.28.2
+python-dotenv
+sqlalchemy
+psycopg2-binary
+python-jose[cryptography]
+requests
 bcrypt
-passlib[bcrypt]==1.7.4
+passlib[bcrypt]
 black

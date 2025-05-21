@@ -10,7 +10,9 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    sent_tasks = Column(Integer)
     public_key = Column(String)
+
 
 class ActiveSession(Base):
     __tablename__ = "active_sessions"
@@ -18,6 +20,3 @@ class ActiveSession(Base):
     username = Column(String, index=True)
     ip_address = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
-
-
-
