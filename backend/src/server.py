@@ -25,12 +25,20 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.orm import Session
 from db import SessionLocal, engine
-from models import User, ActiveSession, Base
-from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result, Message
+from models import User, ActiveSession, Base, TaskHistory
+from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result, Message, TaskHistoryCreate, TaskHistoryOut
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 from jose import JWTError
 
-Base.metadata.drop_all(bind=engine)
-Base.metadata.create_all(bind=engine)
+#Base.metadata.drop_all(bind=engine)
+#Base.metadata.create_all(bind=engine)
 load_dotenv()
 
 app = FastAPI()
@@ -155,31 +163,59 @@ async def login(request: Request, credentials: UserCredentials):
 
 
 @app.get("/task")
-async def get_task(current_user: str = Depends(get_current_user)):
+async def get_task(
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     with lock:
         if current_user not in tasks:
             a = secrets.randbelow(100) + 1
             b = secrets.randbelow(100) + 1
             tasks[current_user] = {"a": a, "b": b, "expected_sum": a + b}
-        return encrypt_response(
-            {"a": tasks[current_user]["a"], "b": tasks[current_user]["b"]}, current_user
-        )
+
+    # --- AUTOMATYCZNY ZAPIS HISTORII ---
+    user = db.query(User).filter(User.username == current_user).first()
+    history = TaskHistory(
+        user_id=user.id,
+        action="get-task",
+        details=f"Task a={tasks[current_user]['a']} b={tasks[current_user]['b']}"
+    )
+    db.add(history)
+    db.commit()
+    # --------------------------------------
+
+    return encrypt_response(
+        {"a": tasks[current_user]["a"], "b": tasks[current_user]["b"]},
+        current_user
+    )
 
 
 @app.post("/result")
-async def submit_result(result: Result, current_user: str = Depends(get_current_user)):
+async def submit_result(
+    result: Result,
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     with lock:
         if current_user not in tasks:
             return encrypt_response({"status": "No active task"}, current_user)
-
         expected = tasks[current_user]["expected_sum"]
-        response_data = (
-            {"status": "Correct"}
-            if result.sum == expected
-            else {"status": "Incorrect", "expected": expected, "received": result.sum}
-        )
+        ok = (result.sum == expected)
+        response_data = {"status": "Correct"} if ok else {"status": "Incorrect", "expected": expected, "received": result.sum}
         del tasks[current_user]
-        return encrypt_response(response_data, current_user)
+
+    # --- AUTOMATYCZNY ZAPIS HISTORII ---
+    user = db.query(User).filter(User.username == current_user).first()
+    history = TaskHistory(
+        user_id=user.id,
+        action="submit-result",
+        details=f"submitted={result.sum}, expected={expected}"
+    )
+    db.add(history)
+    db.commit()
+    # --------------------------------------
+
+    return encrypt_response(response_data, current_user)
 
 
 ##########################################3
@@ -201,16 +237,17 @@ def register(user: UserCreate):
 
 
 @app.post("/login-db")
-def login_db(request: Request, credentials: UserLogin):
+def login_db(
+    request: Request,
+    credentials: UserLogin,
+    db: Session = Depends(get_db),
+):
     check_brute_force(request)
 
-    db: Session = SessionLocal()
     user = db.query(User).filter(User.username == credentials.username).first()
     if not user or not verify_password(credentials.password, user.hashed_password):
         failed_attempts[request.client.host].append(time.time())
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     # Zapisz sesję w pamięci
     client_ip = request.client.host
@@ -226,8 +263,19 @@ def login_db(request: Request, credentials: UserLogin):
     user_public_keys[credentials.username] = public_key_pem
     access_token = create_access_token(data={"sub": credentials.username})
 
+    # ---------- AUTOMATYCZNY ZAPIS HISTORII ----------
+    history = TaskHistory(
+        user_id=user.id,
+        action="login-db",
+        details=f"User {user.username} logged in via DB"
+    )
+    db.add(history)
+    db.commit()
+    # -------------------------------------------------
+
     return encrypt_response(
-        {"access_token": access_token, "token_type": "bearer"}, credentials.username
+        {"access_token": access_token, "token_type": "bearer"},
+        credentials.username
     )
 
 
@@ -250,17 +298,27 @@ user_inboxes = {}
 
 
 @app.post("/send")
-def send_message(message: Message):
+def send_message(
+    message: Message,
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     if message.to_user not in user_public_keys:
         raise HTTPException(status_code=404, detail="User not available")
 
     encrypted_msg = encrypt_response({"message": message.content}, message.to_user)
+    user_inboxes.setdefault(message.to_user, []).append(encrypted_msg)
 
-    # Zapisz wiadomość w "skrzynce odbiorczej"
-    if message.to_user not in user_inboxes:
-        user_inboxes[message.to_user] = []
-
-    user_inboxes[message.to_user].append(encrypted_msg)
+    # --- AUTOMATYCZNY ZAPIS HISTORII ---
+    sender = db.query(User).filter(User.username == current_user).first()
+    history = TaskHistory(
+        user_id=sender.id,
+        action="send-message",
+        details=f"to={message.to_user}: {message.content}"
+    )
+    db.add(history)
+    db.commit()
+    # --------------------------------------
 
     return {"status": "message stored"}
 
@@ -272,6 +330,32 @@ async def get_message(current_user: str = Depends(get_current_user)):
 
     return user_inboxes[current_user].pop(0)
 
+
+@app.post("/tasks/history/", response_model=TaskHistoryOut)
+def create_task_history(entry: TaskHistoryCreate, db: Session = Depends(get_db),
+                        current_user: str = Depends(get_current_user)):
+    user = db.query(User).filter(User.username == current_user).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    new_entry = TaskHistory(
+        user_id=user.id,
+        action=entry.action,
+        details=entry.details
+    )
+    db.add(new_entry)
+    db.commit()
+    db.refresh(new_entry)
+    return new_entry
+
+
+@app.get("/admin/tasks/history/", response_model=list[TaskHistoryOut])
+def get_all_task_history(db: Session = Depends(get_db), current_user: str = Depends(get_current_user)):
+    # Prosta kontrola: tylko admin (nazwa użytkownika w .env)
+    if current_user != os.getenv("ADMIN_USERNAME"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    return db.query(TaskHistory).all()
 
 if __name__ == "__main__":
     import uvicorn

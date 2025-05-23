@@ -1,5 +1,6 @@
 # schemas.py
 from pydantic import BaseModel
+from datetime import datetime
 
 
 class UserCreate(BaseModel):
@@ -36,3 +37,17 @@ class Result(BaseModel):
 class Message(BaseModel):
     to_user: str
     content: str
+
+class TaskHistoryCreate(BaseModel):
+    action: str
+    details: str
+
+class TaskHistoryOut(BaseModel):
+    id: int
+    user_id: int
+    action: str
+    details: str
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True

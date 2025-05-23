@@ -1,5 +1,6 @@
 # models.py
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
@@ -20,3 +21,17 @@ class ActiveSession(Base):
     username = Column(String, index=True)
     ip_address = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+class TaskHistory(Base):
+    __tablename__ = "task_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    action = Column(String, nullable=False)
+    details = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="task_history")
+
+# Uzupełnij klasę User (jeśli istnieje) dodając relację:
+User.task_history = relationship("TaskHistory", back_populates="user")
