@@ -19,6 +19,14 @@ from fastapi.middleware.cors import CORSMiddleware
 import ast
 import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy.orm import sessionmaker, Session, declarative_base
+from datetime import datetime
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./tasks.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
 load_dotenv()
 
@@ -63,6 +71,22 @@ FAILED_ATTEMPT_LIMIT = int(os.getenv("FAILED_ATTEMPT_LIMIT", 5))
 
 DEBUG_MODE = os.getenv("DEBUG_MODE", "0") == "1"
 
+class DBTask(Base):
+    __tablename__ = "tasks"
+    id = Column(Integer, primary_key=True, index=True)
+    content = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class DBResult(Base):
+    __tablename__ = "task_results"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    answer = Column(String, nullable=False)
+    submitted_at = Column(DateTime, default=datetime.utcnow)
+
+Base.metadata.create_all(bind=engine)
+
 # Security models
 class UserCredentials(BaseModel):
     username: str
@@ -94,6 +118,14 @@ def check_brute_force(request: Request):
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many failed attempts",
         )
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 
 def encrypt_response(data: dict, username: str) -> dict:
     public_key_pem = user_public_keys.get(username)
@@ -169,30 +201,80 @@ async def login(request: Request, credentials: UserCredentials):
     # Odpowiedź zaszyfrowana
     return encrypt_response({"access_token": access_token, "token_type": "bearer"}, credentials.username)
 
+@app.post("/tasks/broadcast")
+async def broadcast_task(
+    task: Calculation,
+    db: Session = Depends(get_db)
+):
+    validate_expression(task.calculation)
+    new_task = DBTask(content=task.calculation)
+    db.add(new_task)
+    db.commit()
+    db.refresh(new_task)
+    return {"task_id": new_task.id, "content": new_task.content}
+
 @app.get("/task")
-async def get_task(current_user: str = Depends(get_current_user)):
-    with lock:
-        if current_user not in tasks:
-            a = secrets.randbelow(100) + 1
-            b = secrets.randbelow(100) + 1
-            tasks[current_user] = {"a": a, "b": b, "expected_sum": a + b}
-        return encrypt_response(
-            {"a": tasks[current_user]["a"], "b": tasks[current_user]["b"]}, current_user
-        )
+async def get_task(db: Session = Depends(get_db)):
+    task = db.query(DBTask).order_by(DBTask.created_at.desc()).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="No active task")
+    return {"task_id": task.id, "content": task.content}
 
 @app.post("/result")
-async def submit_result(result: Result, current_user: str = Depends(get_current_user)):
-    with lock:
-        if current_user not in tasks:
-            return encrypt_response({"status": "No active task"}, current_user)
-        expected = tasks[current_user]["expected_sum"]
-        response_data = (
-            {"status": "Correct"}
-            if result.sum == expected
-            else {"status": "Incorrect", "expected": expected, "received": result.sum}
-        )
-        del tasks[current_user]
-        return encrypt_response(response_data, current_user)
+async def submit_result(
+    result: Result,
+    db: Session = Depends(get_db)
+):
+    task = db.query(DBTask).order_by(DBTask.created_at.desc()).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="No active task")
+    db_result = DBResult(
+        user_id="test_user",  # lub current_user jeśli masz autoryzację
+        task_id=task.id,
+        answer=str(result.sum)
+    )
+    db.add(db_result)
+    db.commit()
+    return {"status": "Result saved"}
+
+@app.get("/tasks/history")
+async def get_history(db: Session = Depends(get_db)):
+    results = db.query(DBResult).order_by(DBResult.submitted_at.desc()).all()
+    history = []
+    for r in results:
+        task = db.query(DBTask).filter(DBTask.id == r.task_id).first()
+        history.append({
+            "task_id": r.task_id,
+            "content": task.content if task else "",
+            "answer": r.answer,
+            "submitted_at": r.submitted_at.isoformat()
+        })
+    return history
+
+# @app.get("/task")
+# async def get_task(current_user: str = Depends(get_current_user)):
+#     with lock:
+#         if current_user not in tasks:
+#             a = secrets.randbelow(100) + 1
+#             b = secrets.randbelow(100) + 1
+#             tasks[current_user] = {"a": a, "b": b, "expected_sum": a + b}
+#         return encrypt_response(
+#             {"a": tasks[current_user]["a"], "b": tasks[current_user]["b"]}, current_user
+#         )
+
+# @app.post("/result")
+# async def submit_result(result: Result, current_user: str = Depends(get_current_user)):
+#     with lock:
+#         if current_user not in tasks:
+#             return encrypt_response({"status": "No active task"}, current_user)
+#         expected = tasks[current_user]["expected_sum"]
+#         response_data = (
+#             {"status": "Correct"}
+#             if result.sum == expected
+#             else {"status": "Incorrect", "expected": expected, "received": result.sum}
+#         )
+#         del tasks[current_user]
+#         return encrypt_response(response_data, current_user)
 
 def is_safe_ast(tree):
     class NodeVisitor(ast.NodeVisitor):
@@ -279,3 +361,4 @@ if __name__ == "__main__":
         host=os.getenv("SERVER_HOST", "0.0.0.0"),
         port=int(os.getenv("SERVER_PORT", 8080)),
     )
+#
