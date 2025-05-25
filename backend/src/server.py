@@ -153,17 +153,42 @@ async def login(request: Request, credentials: UserCredentials):
         {"access_token": access_token, "token_type": "bearer"}, credentials.username
     )
 
+@app.post("/broadcast-task")
+def broadcast_task():
+    a = secrets.randbelow(100) + 1
+    b = secrets.randbelow(100) + 1
+    expected_sum = a + b
+    task_data = {"a": a, "b": b}
+
+    for username, public_key in user_public_keys.items():
+        try:
+            encrypted = encrypt_response(task_data, username)
+
+            if username not in user_inboxes:
+                user_inboxes[username] = []
+
+            user_inboxes[username].append({
+                "task": encrypted,
+                "expected_sum": expected_sum
+            })
+
+        except Exception as e:
+            print(f"Błąd przy wysyłaniu do {username}: {e}")
+
+    return {"status": "broadcast sent", "task": task_data}
+
 
 @app.get("/task")
-async def get_task(current_user: str = Depends(get_current_user)):
-    with lock:
-        if current_user not in tasks:
-            a = secrets.randbelow(100) + 1
-            b = secrets.randbelow(100) + 1
-            tasks[current_user] = {"a": a, "b": b, "expected_sum": a + b}
-        return encrypt_response(
-            {"a": tasks[current_user]["a"], "b": tasks[current_user]["b"]}, current_user
-        )
+async def get_broadcast_task(current_user: str = Depends(get_current_user)):
+    inbox = user_inboxes.get(current_user, [])
+
+    for item in inbox:
+        if "task" in item and "expected_sum" in item:
+            tasks[current_user] = {"expected_sum": item["expected_sum"]}
+            inbox.remove(item)
+            return item["task"]
+
+    return {"message": "No broadcast task available"}
 
 
 @app.post("/result")
