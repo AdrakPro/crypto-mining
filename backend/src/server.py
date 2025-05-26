@@ -24,7 +24,7 @@ import json
 from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.orm import Session
-from db import get_db
+from db import get_db, Base, engine
 from models import User, ActiveSession, DBTask, DBResult
 from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result, Message, Calculation
 from jose import JWTError
@@ -32,6 +32,9 @@ from jose import JWTError
 load_dotenv()
 
 app = FastAPI()
+
+Base.metadata.drop_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 DEBUG_MODE = os.getenv("DEBUG_MODE", "0") == "1"
 
@@ -157,31 +160,65 @@ async def login(request: Request, credentials: UserCredentials):
     )
 
 
-@app.get("/task")
-async def get_task(current_user: str = Depends(get_current_user)):
-    with lock:
-        if current_user not in tasks:
-            a = secrets.randbelow(100) + 1
-            b = secrets.randbelow(100) + 1
-            tasks[current_user] = {"a": a, "b": b, "expected_sum": a + b}
-        return encrypt_response(
-            {"a": tasks[current_user]["a"], "b": tasks[current_user]["b"]}, current_user
-        )
+#@app.get("/task")
+#async def get_task(current_user: str = Depends(get_current_user)):
+    #with lock:
+        #if current_user not in tasks:
+            #a = secrets.randbelow(100) + 1
+            #b = secrets.randbelow(100) + 1
+            #tasks[current_user] = {"a": a, "b": b, "expected_sum": a + b}
+        #return encrypt_response(
+            #{"a": tasks[current_user]["a"], "b": tasks[current_user]["b"]}, current_user
+        #)
+
+
+#@app.post("/result")
+#async def submit_result(result: Result, current_user: str = Depends(get_current_user)):
+    #with lock:
+        #if current_user not in tasks:
+            #return encrypt_response({"status": "No active task"}, current_user)
+
+        #expected = tasks[current_user]["expected_sum"]
+        #response_data = (
+            #{"status": "Correct"}
+            #if result.sum == expected
+            #else {"status": "Incorrect", "expected": expected, "received": result.sum}
+        #)
+        #del tasks[current_user]
+        #return encrypt_response(response_data, current_user)
 
 
 @app.post("/result")
-async def submit_result(result: Result, current_user: str = Depends(get_current_user)):
+async def submit_result(
+    result: Result,
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     with lock:
         if current_user not in tasks:
             return encrypt_response({"status": "No active task"}, current_user)
 
         expected = tasks[current_user]["expected_sum"]
-        response_data = (
-            {"status": "Correct"}
-            if result.sum == expected
-            else {"status": "Incorrect", "expected": expected, "received": result.sum}
-        )
-        del tasks[current_user]
+        is_correct = result.sum == expected
+
+        # Save result to DB
+        task = db.query(DBTask).order_by(DBTask.created_at.desc()).first()
+        if task:
+            db_result = DBResult(
+                user_id=current_user,
+                task_id=task.id,
+                answer=str(result.sum)
+            )
+            db.add(db_result)
+            db.commit()
+
+        response_data = {
+            "status": "Correct" if is_correct else "Incorrect",
+            "expected": expected if not is_correct else None,
+            "received": result.sum if not is_correct else None,
+        }
+
+        del tasks[current_user]  # Remove completed task
         return encrypt_response(response_data, current_user)
 
 @app.post("/register")
@@ -292,6 +329,54 @@ async def get_task(db: Session = Depends(get_db)):
     if not task:
         raise HTTPException(status_code=404, detail="No active task")
     return {"task_id": task.id, "content": task.content}
+
+
+@app.post("/calculation")
+async def submit_calculation(
+    calculation: Calculation, current_user: str = Depends(get_current_user)
+):
+    with lock:
+        try:
+            if DEBUG_MODE:
+                print(f"[DEBUG] Otrzymano żądanie obliczenia od {current_user}: {calculation.calculation}")
+            expression = calculation.calculation
+            try:
+                validate_expression(expression)
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=400, detail=f"Invalid calculation: {str(e)}"
+                )
+            restricted_globals = {
+                "__builtins__": {
+                    "int": int,
+                    "float": float,
+                }
+            }
+            restricted_locals = {}
+            try:
+                future = executor.submit(
+                    exec,
+                    f"result = {expression}",
+                    restricted_globals,
+                    restricted_locals,
+                )
+                future.result(timeout=2)
+            except TimeoutError:
+                raise HTTPException(status_code=400, detail="Calculation timeout")
+            except Exception as e:
+                raise HTTPException(status_code=400, detail="Calculation error")
+            result = restricted_locals.get("result")
+            if not isinstance(result, (int, float)):
+                raise HTTPException(status_code=400, detail="Invalid result type")
+            if DEBUG_MODE:
+                print(f"[DEBUG] Wynik obliczenia: {result}")
+            return encrypt_response({"result": result}, current_user)
+        except Exception as e:
+            if DEBUG_MODE:
+                print(f"[DEBUG] Błąd przetwarzania kalkulacji: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail="An error occurred processing the calculation"
+            )
 
 
 if __name__ == "__main__":
