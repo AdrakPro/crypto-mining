@@ -24,12 +24,11 @@ import json
 from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.orm import Session
-from db import SessionLocal, engine
-from models import User, ActiveSession, Base
+from db import SessionLocal, engine, Base
+from models import User, ActiveSession 
 from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result, Message
 from jose import JWTError
 
-Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 load_dotenv()
 
