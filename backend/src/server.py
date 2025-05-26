@@ -24,12 +24,11 @@ import json
 from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.orm import Session
-from db import SessionLocal, engine, Base
+from db import get_db
 from models import User, ActiveSession 
 from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result, Message
 from jose import JWTError
 
-Base.metadata.create_all(bind=engine)
 load_dotenv()
 
 app = FastAPI()
@@ -49,7 +48,6 @@ user_public_keys = {}
 failed_attempts = defaultdict(list)
 tasks = {}
 lock = Lock()
-
 
 # Security functions
 def check_brute_force(request: Request):
@@ -180,11 +178,10 @@ async def submit_result(result: Result, current_user: str = Depends(get_current_
         del tasks[current_user]
         return encrypt_response(response_data, current_user)
 
-
-##########################################3
 @app.post("/register")
-def register(user: UserCreate):
-    db: Session = SessionLocal()
+def register(request: Request, user: UserCreate, db: Session = Depends(get_db)):
+    check_brute_force(request)
+
     if db.query(User).filter(User.username == user.username).first():
         raise HTTPException(status_code=400, detail="Username already registered")
     new_user = User(
@@ -200,10 +197,9 @@ def register(user: UserCreate):
 
 
 @app.post("/login-db")
-def login_db(request: Request, credentials: UserLogin):
+def login_db(request: Request, credentials: UserLogin, db: Session = Depends(get_db)):
     check_brute_force(request)
 
-    db: Session = SessionLocal()
     user = db.query(User).filter(User.username == credentials.username).first()
     if not user or not verify_password(credentials.password, user.hashed_password):
         failed_attempts[request.client.host].append(time.time())

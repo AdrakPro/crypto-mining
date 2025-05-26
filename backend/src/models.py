@@ -1,5 +1,5 @@
 # models.py
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import ForeignKey, Column, Integer, String, DateTime
 from datetime import datetime
 from db import Base
 
@@ -18,3 +18,18 @@ class ActiveSession(Base):
     username = Column(String, index=True)
     ip_address = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+
+class DBTask(Base):
+    __tablename__ = "tasks"
+    id = Column(Integer, primary_key=True, index=True)
+    content = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class DBResult(Base):
+    __tablename__ = "task_results"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    answer = Column(String, nullable=False)
+    submitted_at = Column(DateTime, default=datetime.utcnow)
