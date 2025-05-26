@@ -1,56 +1,67 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Crypto Mining - Klient</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Task Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <h1>Witaj!</h1>
+  <div id="app">
+    <h1>Task Dashboard</h1>
 
-  <div id="menu">
-    <button onclick="showRegister()">Rejestracja</button>
-    <button onclick="showLogin()">Logowanie</button>
+    <!-- Login Form -->
+    <section id="login-form">
+      <h2>Login</h2>
+      <label for="username">Username:</label>
+      <input type="text" id="username" placeholder="Enter username" required />
+      <label for="password">Password:</label>
+      <input type="password" id="password" placeholder="Enter password" required />
+      <button id="login-btn">Login</button>
+    </section>
+
+    <!-- Task Dashboard -->
+    <section id="task-dashboard" style="display: none;">
+
+      <!-- Task Section -->
+      <div id="task-section">
+        <h2>Twoje zadanie</h2>
+        <div id="task-container">
+          <p>Waiting for task...</p>
+        </div>
+        <button id="get-task">Get Task</button>
+        <button id="submit-result" style="display: none;">Submit Result</button>
+        <div id="response"></div>
+      </div>
+
+      <!-- Active Sessions -->
+      <div id="sessions-section">
+        <h2>Aktywne sesje</h2>
+        <button id="load-sessions">Pokaż aktywne sesje</button>
+        <ul id="sessions-list"></ul>
+      </div>
+
+      <!-- Send Message -->
+      <div id="message-section">
+        <h2>Wyślij wiadomość do użytkownika</h2>
+        <label for="user-select">Wybierz użytkownika:</label>
+        <select id="user-select"></select>
+
+        <label for="message-input">Wiadomość:</label>
+        <input type="text" id="message-input" placeholder="Wpisz wiadomość" />
+        <button id="send-message">Wyślij</button>
+        <div id="message-response"></div>
+      </div>
+
+      <!-- Task History -->
+      <div id="history-section">
+        <h2>Task History</h2>
+        <div id="task-history"></div>
+      </div>
+
+    </section>
   </div>
 
-  <!-- Rejestracja -->
-  <div id="registerForm" style="display: none;">
-    <h2>Rejestracja</h2>
-    <form id="formRegister">
-      <input type="text" id="username" placeholder="Nazwa użytkownika" required><br>
-      <input type="password" id="password" placeholder="Hasło" required><br>
-      <button type="submit">Zarejestruj</button>
-    </form>
-    <p id="registerMessage"></p>
-
-    <div id="keysDisplay" style="display: none;">
-      <h3>Twoje klucze (Zapisz je!)</h3>
-      <label>Klucz publiczny:</label><br>
-      <textarea id="generatedPublicKey" rows="6" readonly></textarea><br>
-      <label>Klucz prywatny:</label><br>
-      <textarea id="generatedPrivateKey" rows="10" readonly></textarea><br>
-      <button onclick="downloadPrivateKey()">Pobierz klucz prywatny</button>
-    </div>
-  </div>
-
-  <!-- Logowanie -->
-  <div id="loginForm" style="display: block;">
-    <h2>Logowanie</h2>
-    <form id="formLogin">
-      <input type="text" id="loginUsername" placeholder="Nazwa użytkownika" required><br>
-      <input type="password" id="loginPassword" placeholder="Hasło" required><br>
-      <textarea id="loginPrivateKey" placeholder="Wprowadź swój klucz prywatny" rows="6" style="width: 100%;" required></textarea><br>
-      <button id="loginBtn" type="button">Zaloguj</button>
-    </form>
-    <p id="loginMessage"></p>
-  </div>
-
-  <!-- Pole na wynik -->
-  <div id="resultDisplay" style="display: none; margin-top: 20px; font-size: 16px; color: #333;">
-    <h3>Wynik:</h3>
-    <pre id="resultContent"></pre>
-  </div>
-
-  <script type="module" src="./main.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
 </html>
-

@@ -118,3 +118,35 @@ export async function getSessions() {
     return [];
   }
 }
+export async function getUserList() {
+  try {
+    const response = await fetch(`${SERVER_BASE_URL}/users`);
+    if (!response.ok) throw new Error("Nie udało się pobrać listy użytkowników");
+
+    return await response.json();
+  } catch (error) {
+    console.error("Błąd przy pobieraniu użytkowników:", error);
+    return [];
+  }
+}
+
+export async function sendMessage(recipient, message) {
+  try {
+    const response = await fetch(`${SERVER_BASE_URL}/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to_user: recipient,
+        content: message,
+      }),
+    });
+
+    if (!response.ok) throw new Error("Błąd podczas wysyłania wiadomości");
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("SendMessage error:", error);
+    return null;
+  }
+}

@@ -25,13 +25,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.orm import Session
 from db import get_db
-from models import User, ActiveSession 
-from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result, Message
+from models import User, ActiveSession, DBTask, DBResult
+from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result, Message, Calculation
 from jose import JWTError
 
 load_dotenv()
 
 app = FastAPI()
+
+DEBUG_MODE = os.getenv("DEBUG_MODE", "0") == "1"
 
 # Security middleware
 app.add_middleware(
@@ -95,7 +97,11 @@ def encrypt_response(data: dict, username: str) -> dict:
             label=None,
         ),
     )
-    return {"encrypted": base64.b64encode(ciphertext).decode()}
+    encrypted = base64.b64encode(ciphertext).decode()
+    if DEBUG_MODE:
+        print(f"[DEBUG] Odszyfrowana wiadomość dla {username}: {data}")
+        print(f"[DEBUG] Zaszyfrowana wiadomość dla {username}: {encrypted}")
+    return {"encrypted": encrypted}
 
 
 # Authentication dependency
@@ -266,6 +272,26 @@ async def get_message(current_user: str = Depends(get_current_user)):
         return {"message": None}  # lub np. {"status": "no_message"}
 
     return user_inboxes[current_user].pop(0)
+
+
+@app.post("/tasks/broadcast")
+async def broadcast_task(
+    task: Calculation,
+    db: Session = Depends(get_db)
+):
+    validate_expression(task.calculation)
+    new_task = DBTask(content=task.calculation)
+    db.add(new_task)
+    db.commit()
+    db.refresh(new_task)
+    return {"task_id": new_task.id, "content": new_task.content}
+
+@app.get("/task")
+async def get_task(db: Session = Depends(get_db)):
+    task = db.query(DBTask).order_by(DBTask.created_at.desc()).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="No active task")
+    return {"task_id": task.id, "content": task.content}
 
 
 if __name__ == "__main__":

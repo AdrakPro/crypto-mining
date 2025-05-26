@@ -18,7 +18,7 @@ export async function receiveMessage() {
       return;
     }
 
-    const response = await fetch("http://localhost:8080/get-message", {
+    const response = await fetch("http://0.0.0.0:8080/get-message", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
