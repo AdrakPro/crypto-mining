@@ -1,6 +1,6 @@
 import { convertToPem } from "./utils.js";
 
-const backendUrl = "http://localhost:8080";
+const backendUrl = "http://0.0.0.0:8080";
 
 export async function registerUser(e) {
   e.preventDefault();

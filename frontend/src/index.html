@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <h1>Task Dashboard</h1>
+
+    <!-- Form for user login -->
+    <div id="login-form">
+      <h2>Login</h2>
+      <label for="username">Username:</label>
+      <input type="text" id="username" placeholder="Enter username" required>
+      <label for="password">Password:</label>
+      <input type="password" id="password" placeholder="Enter password" required>
+      <button id="login-btn">Login</button>
+    </div>
+
+    <!-- Task Dashboard -->
+    <div id="task-dashboard" style="display: none;">
+      <div id="task-container">
+        <p>Waiting for task...</p>
+      </div>
+      <!-- Get Task button -->
+      <button id="get-task">Get Task</button>
+      <!-- Submit Result button -->
+      <button id="submit-result" style="display: none;">Submit Result</button>
+      <div id="response"></div>
+      <!--Active User-->
+      <button id="load-sessions">Pokaż aktywne sesje</button>
+      <ul id="sessions-list"></ul>
+
+      <h2>Task History</h2>
+      <div id="task-history"></div>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

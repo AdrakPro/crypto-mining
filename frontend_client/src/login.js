@@ -1,8 +1,6 @@
 import { decryptData } from "./crypto.js";
 import { startReceivingMessages } from "./execMessages.js"; // Zaimportuj funkcję startReceivingMessages
 
-const backendUrl = "http://localhost:8080";
-
 export async function loginUser(e) {
   e.preventDefault();
 
@@ -21,6 +19,8 @@ export async function loginUser(e) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password })
     });
+
+      console.log(response)
 
     if (response.ok) {
       const data = await response.json();
