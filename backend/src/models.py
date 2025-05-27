@@ -3,6 +3,7 @@ from sqlalchemy import ForeignKey, Column, Integer, String, DateTime
 from datetime import datetime
 from db import Base
 
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -25,6 +26,7 @@ class DBTask(Base):
     id = Column(Integer, primary_key=True, index=True)
     content = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
 
 class DBResult(Base):
     __tablename__ = "task_results"

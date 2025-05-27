@@ -37,5 +37,6 @@ class Message(BaseModel):
     to_user: str
     content: str
 
+
 class Calculation(BaseModel):
     calculation: str

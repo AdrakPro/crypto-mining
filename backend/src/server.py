@@ -26,7 +26,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from db import get_db, Base, engine
 from models import User, ActiveSession, DBTask, DBResult
-from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result, Message, Calculation
+from schemas import (
+    UserCreate,
+    UserLogin,
+    UserCredentials,
+    Token,
+    Task,
+    Result,
+    Message,
+    Calculation,
+)
 from jose import JWTError
 
 load_dotenv()
@@ -53,6 +62,7 @@ user_public_keys = {}
 failed_attempts = defaultdict(list)
 tasks = {}
 lock = Lock()
+
 
 # Security functions
 def check_brute_force(request: Request):
@@ -160,39 +170,39 @@ async def login(request: Request, credentials: UserCredentials):
     )
 
 
-#@app.get("/task")
-#async def get_task(current_user: str = Depends(get_current_user)):
-    #with lock:
-        #if current_user not in tasks:
-            #a = secrets.randbelow(100) + 1
-            #b = secrets.randbelow(100) + 1
-            #tasks[current_user] = {"a": a, "b": b, "expected_sum": a + b}
-        #return encrypt_response(
-            #{"a": tasks[current_user]["a"], "b": tasks[current_user]["b"]}, current_user
-        #)
+# @app.get("/task")
+# async def get_task(current_user: str = Depends(get_current_user)):
+# with lock:
+# if current_user not in tasks:
+# a = secrets.randbelow(100) + 1
+# b = secrets.randbelow(100) + 1
+# tasks[current_user] = {"a": a, "b": b, "expected_sum": a + b}
+# return encrypt_response(
+# {"a": tasks[current_user]["a"], "b": tasks[current_user]["b"]}, current_user
+# )
 
 
-#@app.post("/result")
-#async def submit_result(result: Result, current_user: str = Depends(get_current_user)):
-    #with lock:
-        #if current_user not in tasks:
-            #return encrypt_response({"status": "No active task"}, current_user)
+# @app.post("/result")
+# async def submit_result(result: Result, current_user: str = Depends(get_current_user)):
+# with lock:
+# if current_user not in tasks:
+# return encrypt_response({"status": "No active task"}, current_user)
 
-        #expected = tasks[current_user]["expected_sum"]
-        #response_data = (
-            #{"status": "Correct"}
-            #if result.sum == expected
-            #else {"status": "Incorrect", "expected": expected, "received": result.sum}
-        #)
-        #del tasks[current_user]
-        #return encrypt_response(response_data, current_user)
+# expected = tasks[current_user]["expected_sum"]
+# response_data = (
+# {"status": "Correct"}
+# if result.sum == expected
+# else {"status": "Incorrect", "expected": expected, "received": result.sum}
+# )
+# del tasks[current_user]
+# return encrypt_response(response_data, current_user)
 
 
 @app.post("/result")
 async def submit_result(
     result: Result,
     current_user: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     with lock:
         if current_user not in tasks:
@@ -205,9 +215,7 @@ async def submit_result(
         task = db.query(DBTask).order_by(DBTask.created_at.desc()).first()
         if task:
             db_result = DBResult(
-                user_id=current_user,
-                task_id=task.id,
-                answer=str(result.sum)
+                user_id=current_user, task_id=task.id, answer=str(result.sum)
             )
             db.add(db_result)
             db.commit()
@@ -220,6 +228,23 @@ async def submit_result(
 
         del tasks[current_user]  # Remove completed task
         return encrypt_response(response_data, current_user)
+
+
+async def get_history(db: Session = Depends(get_db)):
+    results = db.query(DBResult).order_by(DBResult.submitted_at.desc()).all()
+    history = []
+    for r in results:
+        task = db.query(DBTask).filter(DBTask.id == r.task_id).first()
+        history.append(
+            {
+                "task_id": r.task_id,
+                "content": task.content if task else "",
+                "answer": r.answer,
+                "submitted_at": r.submitted_at.isoformat(),
+            }
+        )
+    return history
+
 
 @app.post("/register")
 def register(request: Request, user: UserCreate, db: Session = Depends(get_db)):
@@ -312,16 +337,14 @@ async def get_message(current_user: str = Depends(get_current_user)):
 
 
 @app.post("/tasks/broadcast")
-async def broadcast_task(
-    task: Calculation,
-    db: Session = Depends(get_db)
-):
+async def broadcast_task(task: Calculation, db: Session = Depends(get_db)):
     validate_expression(task.calculation)
     new_task = DBTask(content=task.calculation)
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
     return {"task_id": new_task.id, "content": new_task.content}
+
 
 @app.get("/task")
 async def get_task(db: Session = Depends(get_db)):
@@ -338,7 +361,9 @@ async def submit_calculation(
     with lock:
         try:
             if DEBUG_MODE:
-                print(f"[DEBUG] Otrzymano żądanie obliczenia od {current_user}: {calculation.calculation}")
+                print(
+                    f"[DEBUG] Otrzymano żądanie obliczenia od {current_user}: {calculation.calculation}"
+                )
             expression = calculation.calculation
             try:
                 validate_expression(expression)
