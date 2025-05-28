@@ -24,7 +24,7 @@ import json
 from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.orm import Session
-from db import SessionLocal,  Base, engine
+from db import SessionLocal, Base, engine
 from models import User, ActiveSession
 from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result, Message
 from jose import JWTError
@@ -273,15 +273,6 @@ async def get_message(current_user: str = Depends(get_current_user)):
     return user_inboxes[current_user].pop(0)
 
 
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(
-        app,
-        host=os.getenv("SERVER_HOST", "0.0.0.0"),
-        port=int(os.getenv("SERVER_PORT", 8080)),
-    )
-
 @app.post("/register")
 def register(user: UserCreate):
     db: Session = SessionLocal()
@@ -361,7 +352,6 @@ def send_message(message: Message):
     user_inboxes[message.to_user].append(encrypted_msg)
 
     return {"status": "message stored"}
-from fastapi import Request
 
 @app.post("/get-message")
 async def get_message(current_user: str = Depends(get_current_user)):
@@ -369,4 +359,13 @@ async def get_message(current_user: str = Depends(get_current_user)):
         return {"message": None}  # lub np. {"status": "no_message"}
 
     return user_inboxes[current_user].pop(0)
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        app,
+        host=os.getenv("SERVER_HOST", "0.0.0.0"),
+        port=int(os.getenv("SERVER_PORT", 8080)),
+    )
 
