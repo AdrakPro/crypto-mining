@@ -1,9 +1,7 @@
-# models.py
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
-Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
@@ -12,7 +10,6 @@ class User(Base):
     hashed_password = Column(String)
     sent_tasks = Column(Integer)
     public_key = Column(String)
-
 
 class ActiveSession(Base):
     __tablename__ = "active_sessions"

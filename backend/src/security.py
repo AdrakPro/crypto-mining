@@ -49,3 +49,6 @@ def decode_token(token: str) -> dict:
 # Secure comparison
 def secure_compare(val1: str, val2: str) -> bool:
     return secrets.compare_digest(val1.encode(), val2.encode())
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()

@@ -24,12 +24,11 @@ import json
 from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.orm import Session
-from db import SessionLocal, engine
-from models import User, ActiveSession, Base
+from db import SessionLocal,  Base, engine
+from models import User, ActiveSession
 from schemas import UserCreate, UserLogin, UserCredentials, Token, Task, Result, Message
 from jose import JWTError
 
-Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 load_dotenv()
 
@@ -43,6 +42,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 active_sessions = []
 
 security = HTTPBearer()
@@ -281,3 +281,92 @@ if __name__ == "__main__":
         host=os.getenv("SERVER_HOST", "0.0.0.0"),
         port=int(os.getenv("SERVER_PORT", 8080)),
     )
+
+@app.post("/register")
+def register(user: UserCreate):
+    db: Session = SessionLocal()
+    if db.query(User).filter(User.username == user.username).first():
+        raise HTTPException(status_code=400, detail="Username already registered")
+    new_user = User(
+        username=user.username,
+        hashed_password=hash_password(user.password),
+        public_key=user.public_key
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"msg": "User registered successfully"}
+
+
+@app.post("/login-db")
+def login_db(request: Request, credentials: UserLogin):
+    check_brute_force(request)
+
+    db: Session = SessionLocal()
+    user = db.query(User).filter(User.username == credentials.username).first()
+    if not user or not verify_password(credentials.password, user.hashed_password):
+        failed_attempts[request.client.host].append(time.time())
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
+
+    # Zapisz sesję w pamięci
+    client_ip = request.client.host
+    active_sessions.append({
+        "username": user.username,
+        "ip": client_ip,
+        "timestamp": time.time()
+    })
+
+    # Pobierz klucz publiczny
+    public_key_pem = user.public_key
+    if not public_key_pem:
+        raise HTTPException(status_code=400, detail="Public key missing in database")
+
+    user_public_keys[credentials.username] = public_key_pem
+    access_token = create_access_token(data={"sub": credentials.username})
+
+    return encrypt_response({
+        "access_token": access_token,
+        "token_type": "bearer"
+    }, credentials.username)
+
+
+@app.get("/sessions")
+def list_sessions():
+    return [
+        {
+            "username": s["username"],
+            "ip": s["ip"],
+            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(s["timestamp"]))
+        }
+        for s in active_sessions
+    ]
+
+# Pamięciowy inbox dla każdego użytkownika
+user_inboxes = {}
+
+@app.post("/send")
+def send_message(message: Message):
+    if message.to_user not in user_public_keys:
+        raise HTTPException(status_code=404, detail="User not available")
+
+    encrypted_msg = encrypt_response({"message": message.content}, message.to_user)
+
+    # Zapisz wiadomość w "skrzynce odbiorczej"
+    if message.to_user not in user_inboxes:
+        user_inboxes[message.to_user] = []
+
+    user_inboxes[message.to_user].append(encrypted_msg)
+
+    return {"status": "message stored"}
+from fastapi import Request
+
+@app.post("/get-message")
+async def get_message(current_user: str = Depends(get_current_user)):
+    if current_user not in user_inboxes or not user_inboxes[current_user]:
+        return {"message": None}  # lub np. {"status": "no_message"}
+
+    return user_inboxes[current_user].pop(0)
+
