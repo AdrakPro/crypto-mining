@@ -4,12 +4,25 @@ import { registerUser } from "./register.js"; // Import rejestracji
 import { loginUser } from "./login.js";
 
 const backendUrl = "http://0.0.0.0:8080";
+const COOLDOWN_MS = 3000;
 
-// Podpinamy nasłuchiwanie do przycisków
-document.getElementById("loginBtn").addEventListener("click", loginUser);
-document.getElementById("formRegister").addEventListener("submit", registerUser);
+function withCooldown(handler, buttonId, cooldown = COOLDOWN_MS) {
+  return function (event) {
+    const button = document.getElementById(buttonId);
+    if (button.disabled) return;
 
-// Funkcje do pokazywania widoków
+    button.disabled = true;
+    setTimeout(() => {
+      button.disabled = false;
+    }, cooldown);
+
+    handler(event);
+  };
+}
+
+document.getElementById("loginBtn").addEventListener("click", withCooldown(loginUser, "loginBtn"));
+document.getElementById("formRegister").addEventListener("submit", withCooldown(registerUser, "formRegister"));
+
 window.showLogin = function () {
   document.getElementById("loginForm").style.display = "block";
   document.getElementById("registerForm").style.display = "none";
