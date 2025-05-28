@@ -76,9 +76,25 @@ async def submit_result(
 def list_sessions(db: Session = Depends(get_db)):
     return session_manager.list_active_sessions(db)
 
+
 @app.post("/send")
-def send_message(message: Message, db: Session = Depends(get_db)):
-    return message_manager.send_message(message, security_manager, db)
+async def send_message(
+    message: Message,
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        return await message_manager.send_message(
+            message=message,
+            security_manager=security_manager,
+            db=db,
+            current_user=current_user
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/get-message")
 async def get_message(current_user: str = Depends(get_current_user)):

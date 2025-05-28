@@ -130,11 +130,14 @@ export async function getUserList() {
   }
 }
 
-export async function sendMessage(recipient, message) {
+export async function sendMessage(token, recipient, message) {
   try {
     const response = await fetch(`${SERVER_BASE_URL}/send`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+    headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+    },
       body: JSON.stringify({
         to_user: recipient,
         content: message,

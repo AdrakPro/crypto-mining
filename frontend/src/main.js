@@ -75,7 +75,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const response = await sendMessage(recipient, message, currentToken);
+      const response = await sendMessage(currentToken, recipient, message)
+      messageInput.value = ""; ;
       messageResponse.textContent = `Wysłano: ${response.status || "OK"}`;
     } catch (err) {
       messageResponse.textContent = `Błąd: ${err.message}`;

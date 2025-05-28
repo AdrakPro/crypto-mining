@@ -15,12 +15,20 @@ class MessageManager:
     def __init__(self):
         self.user_inboxes = {}
 
-    def send_message(self, message: Message, security_manager, db: Session):
-        if message.to_user not in security_manager.user_public_keys:
-            raise HTTPException(status_code=404, detail="User not available")
+    def send_message(self, message: Message, security_manager, current_user: str, db: Session):
+        if message.to_user == current_user:
+            raise HTTPException(
+                status_code=400, 
+                detail="Cannot send message to yourself"
+            )
 
+        if message.to_user not in security_manager.user_public_keys:
+            raise HTTPException(
+                status_code=404, 
+                detail="Recipient not available"
+            )
         encrypted = security_manager.encrypt_response(
-            {"message": message.content}, message.to_user, db
+                {"message": message.content, "from": current_user}, message.to_user, db
         )
 
         if DEBUG_MODE:

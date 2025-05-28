@@ -8,7 +8,6 @@ import random
 
 class SessionManager:
     def __init__(self):
-        self.current_time = datetime.utcnow()
         self.operations = [
             ("+", lambda x, y: x + y, "add"),
             ("-", lambda x, y: x - y, "subtract"),
@@ -28,6 +27,7 @@ class SessionManager:
             return a, b
 
     def create_task(self, username: str, db: Session):
+        current_time = datetime.utcnow()
         op_symbol, op_func, op_name = random.choice(self.operations)
 
         a, b = self._generate_numbers(op_symbol)
@@ -35,7 +35,7 @@ class SessionManager:
 
         task = TaskModel(
             content=content,
-            created_at=self.current_time,
+            created_at=current_time,
         )
 
         db.add(task)
@@ -59,7 +59,7 @@ class SessionManager:
 
     def validate_task_result(self, task_id: int, result: int, username: str, db: Session):
         task = db.query(TaskModel).filter(TaskModel.id == task_id).first()
-
+        current_time = datetime.utcnow()
         if not task:
             return {"status": "Task not found"}
 
@@ -76,14 +76,18 @@ class SessionManager:
             username=username,
             task_id=task_id,
             answer=result,
-            submitted_at=self.current_time,
+            submitted_at=current_time,
         )
+
+        is_correct = abs(float(result) - expected_result) < 0.0001
+        task_result.is_correct = is_correct
 
         db.add(task_result)
         db.commit()
 
         return {
             "status": "Result submitted successfully",
+            "is_correct": is_correct,
             "task_id": task_id,
             "submitted_at": self.current_time.strftime("%Y-%m-%d %H:%M:%S"),
             "username": username,

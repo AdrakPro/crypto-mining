@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 from db import Base
@@ -16,7 +16,7 @@ class UserModel(Base):
 class TaskModel(Base):
     __tablename__ = "tasks"
     id = Column(Integer, primary_key=True, index=True)
-    contnet = Column(String, nullable=False)
+    content = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -27,6 +27,7 @@ class TaskResultModel(Base):
     task_id = Column(Integer, ForeignKey("tasks.id"))
     answer = Column(Integer, nullable=False)
     submitted_at = Column(DateTime, default=datetime.utcnow)
+    is_correct = Column(Boolean)
 
 
 class ActiveSessionModel(Base):
