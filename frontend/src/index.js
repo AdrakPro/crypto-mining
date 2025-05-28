@@ -1,4 +1,4 @@
-const SERVER_BASE_URL = "http://0.0.0.0:8080";
+const SERVER_BASE_URL = "http://localhost:8080";
 
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
