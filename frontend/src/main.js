@@ -6,8 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const usernameInput = document.getElementById("username");
   const passwordInput = document.getElementById("password");
   const loginButton = document.getElementById("login-btn");
-  const getTaskButton = document.getElementById("get-task");
-  const submitButton = document.getElementById("submit-result");
+  const sendTasksButton = document.getElementById("get-task");
   const taskContainer = document.getElementById("task-container");
   const responseContainer = document.getElementById("response");
   const taskHistoryContainer = document.getElementById("task-history");
@@ -34,36 +33,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  getTaskButton.addEventListener("click", async () => {
-    const task = await getTask(currentToken, currentKeyPair);
+  sendTasksButton.addEventListener("click", async () => {
 
-    if (task) {
-      currentTask = task;
-      taskContainer.innerHTML = `Solve: ${task.a} + ${task.b}`;
-      getTaskButton.style.display = "none";
-      submitButton.style.display = "inline-block";
-    }
+
   });
 
-  submitButton.addEventListener("click", async () => {
-    if (!currentTask) return;
-
-    const result = currentTask.a + currentTask.b;
-    const resultData = await submitResult(currentToken, result, currentKeyPair);
-
-    if (resultData) {
-      responseContainer.innerHTML = `Status: ${resultData.status}`;
-
-      const historyEntry = document.createElement("div");
-      historyEntry.className = "history-entry";
-      historyEntry.textContent = `Task: ${currentTask.a} + ${currentTask.b} = ${result} → ${resultData.status}`;
-      taskHistoryContainer.appendChild(historyEntry);
-
-      getTaskButton.style.display = "inline-block";
-      submitButton.style.display = "none";
-      currentTask = null;
-    }
-  });
 
   loadSessionsButton.addEventListener("click", async () => {
     const sessions = await getSessions();
@@ -108,5 +82,3 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
-
-

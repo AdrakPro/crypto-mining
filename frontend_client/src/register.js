@@ -31,7 +31,7 @@ export async function registerUser(e) {
 
     if (response.ok) {
       const data = await response.json();
-      msg.innerText = data.msg;
+      msg.innerText = data.status;
       msg.style.color = "green";
 
       document.getElementById("generatedPublicKey").value = publicKeyPem;

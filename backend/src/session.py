@@ -1,46 +1,119 @@
 import secrets
-from typing import Dict, List
-import time
-from schemas import Result
+from datetime import datetime
+from models import TaskModel, TaskResultModel, ActiveSessionModel
+from sqlalchemy import func, and_
+from sqlalchemy.orm import Session
+import random
+
 
 class SessionManager:
     def __init__(self):
-        self.tasks = {}
-        self.active_sessions = []
+        self.current_time = datetime.utcnow()
+        self.operations = [
+            ("+", lambda x, y: x + y, "add"),
+            ("-", lambda x, y: x - y, "subtract"),
+            ("*", lambda x, y: x * y, "multiply"),
+            ("/", lambda x, y: x / y, "divide"),
+        ]
 
-    def get_or_create_task(self, user: str) -> Dict[str, int]:
-        if user not in self.tasks:
+    @staticmethod
+    def _generate_numbers(operation: str):
+        if operation == "/":
+            b = secrets.randbelow(9) + 1
+            a = b * (secrets.randbelow(10) + 1)
+            return a, b
+        else:
             a = secrets.randbelow(100) + 1
             b = secrets.randbelow(100) + 1
-            self.tasks[user] = {"a": a, "b": b, "expected_sum": a + b}
-        return {"a": self.tasks[user]["a"], "b": self.tasks[user]["b"]}
+            return a, b
 
-    def validate_task_result(self, user: str, result: Result) -> Dict[str, any]:
-        if user not in self.tasks:
-            return {"status": "No active task"}
+    def create_task(self, username: str, db: Session):
+        op_symbol, op_func, op_name = random.choice(self.operations)
 
-        expected = self.tasks[user]["expected_sum"]
-        response = (
-            {"status": "Correct"}
-            if result.sum == expected
-            else {"status": "Incorrect", "expected": expected, "received": result.sum}
+        a, b = self._generate_numbers(op_symbol)
+        content = f"{op_name} {a} and {b}"
+
+        task = TaskModel(
+            content=content,
+            created_at=self.current_time,
         )
-        del self.tasks[user]
-        return response
 
-    def add_session(self, username: str, ip: str):
-        self.active_sessions.append({
+        db.add(task)
+        db.commit()
+        db.refresh(task)
+
+        expected_result = op_func(a, b)
+        if op_symbol == "/":
+            expected_result = float(expected_result)
+
+        return {
+            "status": "Task created successfully",
+            "task_id": task.id,
+            "content": task.content,
+            "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "created_by": username,
+            "a": a,
+            "b": b,
+            "expected_result": expected_result,
+        }
+
+    def validate_task_result(self, task_id: int, result: int, username: str, db: Session):
+        task = db.query(TaskModel).filter(TaskModel.id == task_id).first()
+
+        if not task:
+            return {"status": "Task not found"}
+
+        existing_result = (
+            db.query(TaskResultModel)
+            .filter(TaskResultModel.username == username, TaskResultModel.task_id == task_id)
+            .first()
+        )
+
+        if existing_result:
+            return {"status": "Task already submitted"}
+
+        task_result = TaskResultModel(
+            username=username,
+            task_id=task_id,
+            answer=result,
+            submitted_at=self.current_time,
+        )
+
+        db.add(task_result)
+        db.commit()
+
+        return {
+            "status": "Result submitted successfully",
+            "task_id": task_id,
+            "submitted_at": self.current_time.strftime("%Y-%m-%d %H:%M:%S"),
             "username": username,
-            "ip": ip,
-            "timestamp": time.time()
-        })
+            "answer": result,
+        }
 
-    def list_active_sessions(self) -> List[Dict[str, str]]:
-        return [
-            {
-                "username": s["username"],
-                "ip": s["ip"],
-                "timestamp": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(s["timestamp"]))
-            }
-            for s in self.active_sessions
-        ]
+    @staticmethod
+    def list_active_sessions(db: Session):
+        subquery = (
+            db.query(
+                ActiveSessionModel.username,
+                func.max(ActiveSessionModel.timestamp).label(
+                    "latest_timestamp")
+            )
+            .group_by(ActiveSessionModel.username)
+            .subquery()
+        )
+
+        latest_sessions = (
+            db.query(ActiveSessionModel)
+            .join(
+                subquery,
+                and_(
+                    ActiveSessionModel.username == subquery.c.username,
+                    ActiveSessionModel.timestamp == subquery.c.latest_timestamp,
+                )
+            )
+            .all()
+        )
+
+        print(latest_sessions)
+
+        return latest_sessions

@@ -1,5 +1,5 @@
 import { decryptData } from "./crypto.js";
-import { startReceivingMessages } from "./execMessages.js"; // Zaimportuj funkcję startReceivingMessages
+import { startReceivingMessages } from "./execMessages.js";
 
 const backendUrl = "http://localhost:8080";
 
@@ -50,10 +50,12 @@ export async function loginUser(e) {
           // Zmieniamy widok
           document.getElementById("loginForm").style.display = "none";
           document.getElementById("registerForm").style.display = "none";
+          document.getElementById("menu").style.display = "none";
           document.getElementById("resultDisplay").style.display = "block";
           
           // Rozpocznij odbieranie wiadomości
-          startReceivingMessages(); // Uruchom odbieranie wiadomości
+          startReceivingMessages();
+
         } catch (err) {
           console.error("Błąd przy deszyfrowaniu danych:", err);
           msg.innerText = "Błąd przy deszyfrowywaniu danych.";

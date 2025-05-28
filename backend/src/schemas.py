@@ -1,35 +1,26 @@
 from pydantic import BaseModel
 
-class UserCreate(BaseModel):
+
+class UserSchema(BaseModel):
     username: str
     password: str
     public_key: str
 
-class UserLogin(BaseModel):
+class UserLoginSchema(BaseModel):
     username: str
     password: str
 
-class UserCredentials(BaseModel):
-    username: str
-    password: str
-    public_key: str
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
+
 class Task(BaseModel):
     a: int
     b: int
-
-class Result(BaseModel):
-    sum: int
 
 
 class Message(BaseModel):
     to_user: str
     content: str
-
-class Result(BaseModel):
-    sum: int
-

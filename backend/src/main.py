@@ -1,29 +1,21 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-from typing import List, Dict, Any
-from threading import Lock
-from datetime import datetime
 import os
-import time
 from dotenv import load_dotenv
-
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 from security import SecurityManager
 from session import SessionManager
 from message import MessageManager
-from db import get_db, Base, engine
-from models import User
-from schemas import UserCreate, UserLogin, UserCredentials, Result, Message, Task
+from db import get_db, Base, engine, SessionLocal
+from schemas import UserSchema, Message, UserLoginSchema
 
+#Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 load_dotenv()
 
 app = FastAPI()
-
-security_manager = SecurityManager()
-session_manager = SessionManager()
-message_manager = MessageManager()
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,49 +25,60 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-tasks: Dict[str, Dict[str, int]] = {}
-lock = Lock()
+@app.on_event("startup")
+def truncate_sessions():
+    db: Session = SessionLocal()
+    try:
+        db.execute(text("TRUNCATE TABLE active_sessions RESTART IDENTITY;"))
+        db.commit()
+    finally:
+        db.close()
 
-async def get_current_user(
-    credentials = Depends(HTTPBearer())
-) -> str:
-    return await security_manager.validate_token(credentials)
+security_manager = SecurityManager()
+session_manager = SessionManager()
+message_manager = MessageManager()
+
+
+async def get_current_user(credentials=Depends(HTTPBearer())):
+    return await SecurityManager.validate_token(credentials)
 
 @app.post("/register")
-def register(user: UserCreate, db: Session = Depends(get_db)):
-    return security_manager.register_user(db, user)
+async def register(user: UserSchema, db: Session = Depends(get_db)):
+    return security_manager.register_user(user, db)
 
 @app.post("/login")
-async def login(request: Request, credentials: UserCredentials):
-    return await security_manager.login(request, credentials)
+async def login(request: Request, user: UserSchema, db: Session = Depends(get_db)):
+    return await security_manager.login(request, user, db)
 
 @app.post("/login-db")
-def login_db(request: Request, credentials: UserLogin, db: Session = Depends(get_db)):
-    return security_manager.login_db(request, credentials, db)
+def login_db(request: Request, user: UserLoginSchema, db: Session = Depends(get_db)):
+    return security_manager.login_db(request, user, db)
 
 @app.get("/task")
-async def get_task(current_user: str = Depends(get_current_user)):
-    task = session_manager.get_or_create_task(current_user)
-    return security_manager.encrypt_response(task, current_user)
+async def get_task(current_user: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    task = session_manager.create_task(current_user, db)
+    return security_manager.encrypt_response(task, current_user, db)
 
-@app.post("/result")
+@app.post("/task/{task_id}/result")
 async def submit_result(
-    result: Result,
-    current_user: str = Depends(get_current_user)
+    task_id: int, result: int, current_user: str = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    response = session_manager.validate_task_result(current_user, result)
-    return security_manager.encrypt_response(response, current_user)
+    response = session_manager.validate_task_result(task_id, result, current_user, db)
+
+    if response.get("status") == "Task not found":
+        raise HTTPException(status_code=404, detail="Task not found")
+    if response.get("status") == "Task already submitted":
+        raise HTTPException(status_code=400, detail="Task already submitted")
+
+    return security_manager.encrypt_response(response, current_user, db)
 
 @app.get("/sessions")
-def list_sessions() -> List[Dict[str, str]]:
-    return session_manager.list_active_sessions()
+def list_sessions(db: Session = Depends(get_db)):
+    return session_manager.list_active_sessions(db)
 
 @app.post("/send")
-def send_message(
-    message: Message,
-    current_user: str = Depends(get_current_user)
-):
-    return message_manager.send_message(message, security_manager)
+def send_message(message: Message, db: Session = Depends(get_db)):
+    return message_manager.send_message(message, security_manager, db)
 
 @app.post("/get-message")
 async def get_message(current_user: str = Depends(get_current_user)):
@@ -83,7 +86,6 @@ async def get_message(current_user: str = Depends(get_current_user)):
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(
         app,
         host=os.getenv("SERVER_HOST", "0.0.0.0"),

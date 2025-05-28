@@ -1,6 +1,6 @@
 import { decryptData } from "./crypto.js";
 import { receiveMessage } from "./execMessages.js";
-import { registerUser } from "./register.js"; // Import rejestracji
+import { registerUser } from "./register.js";
 import { loginUser } from "./login.js";
 
 const backendUrl = "http://0.0.0.0:8080";

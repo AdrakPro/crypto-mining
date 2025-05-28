@@ -1,8 +1,13 @@
-python-dotenv
-sqlalchemy
+python-dotenv~=1.1.0
+sqlalchemy~=2.0.41
 psycopg2-binary
 python-jose[cryptography]
 requests
 bcrypt
-passlib[bcrypt]
+passlib[bcrypt]~=1.7.4
 black
+fastapi~=0.115.12
+pydantic~=2.11.5
+jose~=1.0.0
+cryptography~=45.0.3
+uvicorn

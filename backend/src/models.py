@@ -1,9 +1,10 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 from db import Base
 
-class User(Base):
+
+class UserModel(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
@@ -11,9 +12,26 @@ class User(Base):
     sent_tasks = Column(Integer)
     public_key = Column(String)
 
-class ActiveSession(Base):
+
+class TaskModel(Base):
+    __tablename__ = "tasks"
+    id = Column(Integer, primary_key=True, index=True)
+    contnet = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TaskResultModel(Base):
+    __tablename__ = "task_results"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    answer = Column(Integer, nullable=False)
+    submitted_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ActiveSessionModel(Base):
     __tablename__ = "active_sessions"
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, index=True)
-    ip_address = Column(String)
+    ip = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)

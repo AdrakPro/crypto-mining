@@ -4,25 +4,21 @@ from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 import secrets
-import hashlib
-import bcrypt
 
 load_dotenv()
 
-# Password hashing configuration
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
+def verify_password(plain_password: str, hashed_password: str):
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def hash_password(password: str) -> str:
+def hash_password(password: str):
     return pwd_context.hash(password)
 
 
-# JWT configuration
-def create_access_token(data: dict) -> str:
+def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(
         minutes=int(os.getenv("JWT_EXPIRE_MINUTES", 30))
@@ -35,7 +31,7 @@ def create_access_token(data: dict) -> str:
     )
 
 
-def decode_token(token: str) -> dict:
+def decode_token(token: str):
     try:
         return jwt.decode(
             token,
@@ -46,9 +42,5 @@ def decode_token(token: str) -> dict:
         return None
 
 
-# Secure comparison
 def secure_compare(val1: str, val2: str) -> bool:
     return secrets.compare_digest(val1.encode(), val2.encode())
-
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
