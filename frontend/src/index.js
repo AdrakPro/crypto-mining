@@ -153,3 +153,41 @@ export async function sendMessage(token, recipient, message) {
     return null;
   }
 }
+
+export async function broadcastTask(token) {
+  try {
+    const response = await fetch(`${SERVER_BASE_URL}/broadcast-task`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Broadcast failed");
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Broadcast error:", error);
+    return null;
+  }
+}
+
+export async function getBroadcastHistory(token) {
+  try {
+    const response = await fetch(`${SERVER_BASE_URL}/broadcast-tasks-history`, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Failed to fetch history");
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("History fetch error:", error);
+    return [];
+  }
+}

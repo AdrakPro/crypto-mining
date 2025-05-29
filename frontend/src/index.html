@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Task Dashboard</title>
+  <title>Admin Dashboard</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="app">
-    <h1>Task Dashboard</h1>
+    <h1>Admin Dashboard</h1>
 
     <!-- Login Form -->
     <section id="login-form">
@@ -20,46 +20,62 @@
       <button id="login-btn">Login</button>
     </section>
 
-    <!-- Task Dashboard -->
+    <!-- Admin Dashboard -->
     <section id="task-dashboard" style="display: none;">
-      
-      <!-- Task Section -->
-      <div id="task-section">
-        <h2>Wyślij zadanie</h2>
-        <button id="get-task">Wyślij zadania</button>
-        <button id="submit-result" style="display: none;">Submit Result</button>
-        <div id="response"></div>
+      <div class="dashboard-top">
+        <!-- Task Broadcast Section -->
+        <div class="dashboard-card">
+          <h2>Broadcast Task</h2>
+          <button id="broadcast-task">Broadcast New Task</button>
+          <div id="broadcast-response" class="response"></div>
+        </div>
+
+        <!-- Active Sessions -->
+        <div class="dashboard-card">
+          <h2>Active Sessions</h2>
+          <button id="load-sessions">Refresh Sessions</button>
+          <ul id="sessions-list"></ul>
+        </div>
+
+        <!-- Send Message -->
+        <div class="dashboard-card">
+          <h2>Send Message</h2>
+          <label for="user-select">Select User:</label>
+          <select id="user-select"></select>
+          <label for="message-input">Message:</label>
+          <input type="text" id="message-input" placeholder="Type message" />
+          <button id="send-message">Send</button>
+        </div>
       </div>
 
-      <!-- Active Sessions -->
-      <div id="sessions-section">
-        <h2>Aktywne sesje</h2>
-        <button id="load-sessions">Pokaż aktywne sesje</button>
-        <ul id="sessions-list"></ul>
+      <!-- Task History Section -->
+      <div class="dashboard-card history-container">
+        <div class="history-header">
+          <h2>Broadcast History</h2>
+          <button id="refresh-history">Refresh History</button>
+        </div>
+        <div id="history-table-container">
+          <table id="history-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Task</th>
+                <th>Operation</th>
+                <th>Created At</th>
+                <th>Submissions</th>
+                <th>Correct</th>
+                <th>Accuracy</th>
+              </tr>
+            </thead>
+            <tbody id="history-body">
+              <!-- History data will be populated here -->
+            </tbody>
+          </table>
+        </div>
       </div>
-
-      <!-- Send Message -->
-      <div id="message-section">
-        <h2>Wyślij wiadomość do użytkownika</h2>
-        <label for="user-select">Wybierz użytkownika:</label>
-        <select id="user-select"></select>
-
-        <label for="message-input">Wiadomość:</label>
-        <input type="text" id="message-input" placeholder="Wpisz wiadomość" />
-        <button id="send-message">Wyślij</button>
-        <div id="message-response"></div>
-      </div>
-
-      <!-- Task History -->
-      <div id="history-section">
-        <h2>Task History</h2>
-        <div id="task-history"></div>
-      </div>
-
     </section>
   </div>
 
   <script type="module" src="main.js"></script>
 </body>
 </html>
-

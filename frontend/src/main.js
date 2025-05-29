@@ -1,4 +1,12 @@
-import { authenticate, getTask, submitResult, getSessions, sendMessage } from './index.js';
+import {
+  authenticate,
+  getTask,
+  submitResult,
+  getSessions,
+  sendMessage,
+  broadcastTask,
+  getBroadcastHistory
+} from './index.js';
 
 document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("login-form");
@@ -16,10 +24,75 @@ document.addEventListener("DOMContentLoaded", () => {
   const messageInput = document.getElementById("message-input");
   const sendMessageButton = document.getElementById("send-message");
   const messageResponse = document.getElementById("message-response");
+  const broadcastTaskButton = document.getElementById("broadcast-task");
+  const refreshHistoryButton = document.getElementById("refresh-history");
+  const historyTableBody = document.getElementById("history-body");
+  const broadcastResponse = document.getElementById("broadcast-response");
 
   let currentToken = null;
   let currentKeyPair = null;
   let currentTask = null;
+
+  broadcastTaskButton.addEventListener("click", async () => {
+    if (!currentToken) {
+      broadcastResponse.textContent = "Please log in first.";
+      return;
+    }
+
+    try {
+      const response = await broadcastTask(currentToken);
+      if (response) {
+        broadcastResponse.textContent = `Task broadcasted! Task ID: ${response.task_id}`;
+        // Refresh history after broadcasting
+        await loadBroadcastHistory();
+      } else {
+        broadcastResponse.textContent = "Broadcast failed.";
+      }
+    } catch (error) {
+      broadcastResponse.textContent = `Error: ${error.message}`;
+    }
+  });
+
+  // Refresh history button
+  refreshHistoryButton.addEventListener("click", async () => {
+    await loadBroadcastHistory();
+  });
+
+  // Load broadcast history
+  async function loadBroadcastHistory() {
+    if (!currentToken) return;
+
+    try {
+      const history = await getBroadcastHistory(currentToken);
+      renderHistoryTable(history);
+    } catch (error) {
+      historyTableBody.innerHTML = `<tr><td colspan="7">Error loading history: ${error.message}</td></tr>`;
+    }
+  }
+
+  // Render history table
+  function renderHistoryTable(history) {
+    if (history.length === 0) {
+      historyTableBody.innerHTML = '<tr><td colspan="7">No broadcast history available</td></tr>';
+      return;
+    }
+
+    historyTableBody.innerHTML = '';
+
+    history.forEach(task => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${task.id}</td>
+        <td>${task.content}</td>
+        <td>${task.operation}</td>
+        <td>${task.created_at}</td>
+        <td>${task.total_submissions}</td>
+        <td>${task.correct_count}</td>
+        <td>${task.accuracy}%</td>
+      `;
+      historyTableBody.appendChild(row);
+    });
+  }
 
   loginButton.addEventListener("click", async (e) => {
     e.preventDefault();
@@ -30,12 +103,9 @@ document.addEventListener("DOMContentLoaded", () => {
       currentKeyPair = authData.keyPair;
       loginForm.style.display = "none";
       taskDashboard.style.display = "block";
+
+      await loadBroadcastHistory();
     }
-  });
-
-  sendTasksButton.addEventListener("click", async () => {
-
-
   });
 
 
