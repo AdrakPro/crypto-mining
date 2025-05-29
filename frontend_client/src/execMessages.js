@@ -55,5 +55,5 @@ export async function receiveMessage() {
 export async function startReceivingMessages() {
   setInterval(() => {
     receiveMessage();
-  }, 1000);
+  }, 2000);
 }

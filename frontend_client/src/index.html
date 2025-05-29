@@ -9,8 +9,8 @@
   <h1>Witaj!</h1>
 
   <div id="menu">
-    <button onclick="showRegister()">Rejestracja</button>
-    <button onclick="showLogin()">Logowanie</button>
+    <button id="registerBtn">Rejestracja</button>
+    <button id="loginToggleBtn">Logowanie</button>
   </div>
 
   <!-- Rejestracja -->
@@ -47,11 +47,31 @@
 
   <!-- Pole na wynik -->
   <div id="resultDisplay" style="display: none; margin-top: 20px; font-size: 16px; color: #333;">
-    <h3>Wynik:</h3>
+    <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+      <!-- Message Section -->
+      <div style="flex: 1; min-width: 300px;">
+
+      </div>
+
+      <!-- Task Section -->
+      <div style="flex: 1; min-width: 300px;">
+        <h3>Aktualne zadanie:</h3>
+        <div id="taskInfo" style="background: #e8f5e9; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+          <p>Brak aktywnego zadania</p>
+        </div>
+
+        <div id="taskForm" style="display: none;">
+          <input type="number" step="any" id="answerInput" placeholder="Wpisz odpowiedź" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+          <button id="submitAnswerBtn">Wyślij odpowiedź</button>
+          <div id="taskResult" style="margin-top: 10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Ostatnia wiadomość:</h3>
     <pre id="resultContent"></pre>
   </div>
 
   <script type="module" src="./main.js"></script>
 </body>
 </html>
-
