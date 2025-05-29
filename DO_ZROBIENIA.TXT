@@ -1,6 +1,3 @@
-1. Dla backendu python3 server.py, dla frontend_client: python3 -m http.server 8082
-2. Zamienic w backnendzie nazwe .env.example na .env
-3. Haslo do serwera trzeba sobie wygnerowac w generate.py i wstawic hasha do .env, a potem sie zalogowac do serwera
-4. Rejestracja w kliencie, zapis klucza prywatnego i potem zalogowanie sie przy pomocy username, passowrd i klucza prywantego
-
-ładniejszy dashboard dla uzytkownika, historia uzytkownika data itd, zapis do bazy tasków, administrator widzi wszystko co zrobil (moze pusic selecta * czy cos podobego), wysylac zadanie zeby nie bylo reczenia jedna kolejka wiele, user widzi historie swoich akcji, wysylasz broadcast task=2+2 z serwera i wszyscy użytkownicy dostają to samo zadanie, ma być adres 0.0.0.0
+Walidacja hasła, zeby mialo iles znakow
+Linting kodu
+Integracja (spolszczenia, refactoring)

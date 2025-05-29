@@ -15,7 +15,7 @@ class MessageManager:
     def __init__(self):
         self.user_inboxes = {}
 
-    def send_message(self, message: Message, security_manager, current_user: str, db: Session):
+    async def send_message(self, message: Message, security_manager, current_user: str, db: Session):
         if message.to_user == current_user:
             raise HTTPException(
                 status_code=400, 
@@ -41,7 +41,7 @@ class MessageManager:
         self.user_inboxes[message.to_user].append(encrypted)
         return {"status": "message stored"}
 
-    def get_message(self, user: str):
+    async def get_message(self, user: str):
         if user not in self.user_inboxes or not self.user_inboxes[user]:
             return {"message": None}
         return self.user_inboxes[user].pop(0)

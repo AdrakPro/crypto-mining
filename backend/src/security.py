@@ -105,7 +105,7 @@ class SecurityManager:
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
-        return {"status": "User registered successfully"}
+        return {"status": "Pomyślnie zarejestrowano użytkownika"}
 
     async def login(self, request: Request, user: UserSchema, db: Session):
         self.check_brute_force(request)

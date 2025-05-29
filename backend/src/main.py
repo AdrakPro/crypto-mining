@@ -11,7 +11,7 @@ from message import MessageManager
 from db import get_db, Base, engine, SessionLocal
 from schemas import UserSchema, Message, UserLoginSchema
 
-#Base.metadata.drop_all(bind=engine)
+Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 load_dotenv()
 
@@ -56,14 +56,17 @@ def login_db(request: Request, user: UserLoginSchema, db: Session = Depends(get_
 
 @app.get("/task")
 async def get_task(current_user: str = Depends(get_current_user), db: Session = Depends(get_db)):
-    task = session_manager.create_task(current_user, db)
+    task = session_manager.get_latest_broadcast_task(db)
+    if not task:
+        raise HTTPException(status_code=404, detail="No broadcasted task available")
     return security_manager.encrypt_response(task, current_user, db)
+
 
 @app.post("/task/{task_id}/result")
 async def submit_result(
-    task_id: int, result: int, current_user: str = Depends(get_current_user), db: Session = Depends(get_db)
+    task_id: int, result: float, current_user: str = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    response = session_manager.validate_task_result(task_id, result, current_user, db)
+    response = session_manager.validate_broadcast_task_result(task_id, result, current_user, db)
 
     if response.get("status") == "Task not found":
         raise HTTPException(status_code=404, detail="Task not found")
@@ -71,6 +74,27 @@ async def submit_result(
         raise HTTPException(status_code=400, detail="Task already submitted")
 
     return security_manager.encrypt_response(response, current_user, db)
+
+@app.post("/broadcast-task")
+async def broadcast_task(
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user != os.getenv("ADMIN_USERNAME"):
+        raise HTTPException(status_code=403, detail="Only admin can broadcast tasks")
+
+    task = session_manager.create_broadcast_task(db)
+    return {"status": "Task broadcasted", "task_id": task["task_id"]}
+
+@app.get("/broadcast-tasks-history")
+async def get_broadcast_tasks_history(
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user != os.getenv("ADMIN_USERNAME"):
+        raise HTTPException(status_code=403, detail="Only admin can access this endpoint")
+
+    return session_manager.get_broadcast_tasks_history(db)
 
 @app.get("/sessions")
 def list_sessions(db: Session = Depends(get_db)):
@@ -98,7 +122,7 @@ async def send_message(
 
 @app.post("/get-message")
 async def get_message(current_user: str = Depends(get_current_user)):
-    return message_manager.get_message(current_user)
+    return await message_manager.get_message(current_user)
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,7 +1,7 @@
 import secrets
 from datetime import datetime
-from models import TaskModel, TaskResultModel, ActiveSessionModel
-from sqlalchemy import func, and_
+from models import BroadcastTaskModel, BroadcastTaskResultModel, ActiveSessionModel
+from sqlalchemy import func, and_, Integer
 from sqlalchemy.orm import Session
 import random
 
@@ -26,61 +26,68 @@ class SessionManager:
             b = secrets.randbelow(100) + 1
             return a, b
 
-    def create_task(self, username: str, db: Session):
-        current_time = datetime.utcnow()
+    def create_broadcast_task(self, db: Session):
         op_symbol, op_func, op_name = random.choice(self.operations)
-
         a, b = self._generate_numbers(op_symbol)
         content = f"{op_name} {a} and {b}"
 
-        task = TaskModel(
+        task = BroadcastTaskModel(
             content=content,
-            created_at=current_time,
+            a=a,
+            b=b,
+            operation=op_symbol,
+            expected_result=float(op_func(a, b))
         )
 
         db.add(task)
         db.commit()
         db.refresh(task)
 
-        expected_result = op_func(a, b)
-        if op_symbol == "/":
-            expected_result = float(expected_result)
-
         return {
-            "status": "Task created successfully",
             "task_id": task.id,
-            "content": task.content,
-            "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "created_by": username,
+            "content": content,
             "a": a,
             "b": b,
-            "expected_result": expected_result,
+            "operation": op_symbol
         }
 
-    def validate_task_result(self, task_id: int, result: int, username: str, db: Session):
-        task = db.query(TaskModel).filter(TaskModel.id == task_id).first()
-        current_time = datetime.utcnow()
+    def get_latest_broadcast_task(self, db: Session):
+        task = db.query(BroadcastTaskModel).order_by(BroadcastTaskModel.created_at.desc()).first()
+        if not task:
+            return None
+
+        return {
+            "task_id": task.id,
+            "content": task.content,
+            "a": task.a,
+            "b": task.b,
+            "operation": task.operation
+        }
+
+    def validate_broadcast_task_result(self, task_id: int, result: float, username: str, db: Session):
+        task = db.query(BroadcastTaskModel).filter(BroadcastTaskModel.id == task_id).first()
         if not task:
             return {"status": "Task not found"}
 
         existing_result = (
-            db.query(TaskResultModel)
-            .filter(TaskResultModel.username == username, TaskResultModel.task_id == task_id)
+            db.query(BroadcastTaskResultModel)
+            .filter(
+                BroadcastTaskResultModel.broadcast_task_id == task_id,
+                BroadcastTaskResultModel.username == username
+            )
             .first()
         )
 
         if existing_result:
             return {"status": "Task already submitted"}
 
-        task_result = TaskResultModel(
+        is_correct = abs(result - task.expected_result) < 0.0001
+        task_result = BroadcastTaskResultModel(
+            broadcast_task_id=task_id,
             username=username,
-            task_id=task_id,
             answer=result,
-            submitted_at=current_time,
+            is_correct=is_correct
         )
-
-        is_correct = abs(float(result) - expected_result) < 0.0001
-        task_result.is_correct = is_correct
 
         db.add(task_result)
         db.commit()
@@ -88,11 +95,45 @@ class SessionManager:
         return {
             "status": "Result submitted successfully",
             "is_correct": is_correct,
-            "task_id": task_id,
-            "submitted_at": self.current_time.strftime("%Y-%m-%d %H:%M:%S"),
-            "username": username,
-            "answer": result,
+            "task_id": task_id
         }
+
+    def get_broadcast_tasks_history(self, db: Session):
+        # Query to get task details with result counts
+        tasks = db.query(
+            BroadcastTaskModel.id,
+            BroadcastTaskModel.content,
+            BroadcastTaskModel.a,
+            BroadcastTaskModel.b,
+            BroadcastTaskModel.operation,
+            BroadcastTaskModel.expected_result,
+            BroadcastTaskModel.created_at,
+            func.count(BroadcastTaskResultModel.id).label('total_submissions'),
+            func.sum(func.cast(BroadcastTaskResultModel.is_correct, Integer)).label('correct_count'),
+            func.sum(func.cast(BroadcastTaskResultModel.is_correct == False, Integer)).label('incorrect_count')
+        ).outerjoin(
+            BroadcastTaskResultModel,
+            BroadcastTaskModel.id == BroadcastTaskResultModel.broadcast_task_id
+        ).group_by(BroadcastTaskModel.id).order_by(BroadcastTaskModel.created_at.desc()).all()
+
+        # Format the results
+        history = []
+        for task in tasks:
+            history.append({
+                "id": task.id,
+                "content": task.content,
+                "a": task.a,
+                "b": task.b,
+                "operation": task.operation,
+                "expected_result": task.expected_result,
+                "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "total_submissions": task.total_submissions,
+                "correct_count": task.correct_count or 0,
+                "incorrect_count": task.incorrect_count or 0,
+                "accuracy": round((task.correct_count or 0) / max(task.total_submissions, 1) * 100, 2)
+            })
+
+        return history
 
     @staticmethod
     def list_active_sessions(db: Session):
