@@ -1,5 +1,7 @@
 import { decryptData } from "./crypto.js";
+import CONFIG from "./config.js";
 
+const url = CONFIG.BACKEND_URL
 const worker = new Worker("sandboxWorker.js");
 
 worker.onmessage = function(event) {
@@ -18,7 +20,7 @@ export async function receiveMessage() {
       return;
     }
 
-    const response = await fetch("http://localhost:8080/get-message", {
+    const response = await fetch(`${url}/get-message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

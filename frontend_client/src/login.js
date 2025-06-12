@@ -1,7 +1,8 @@
 import { decryptData } from "./crypto.js";
 import { startReceivingMessages } from "./execMessages.js";
+import CONFIG from "./config.js"
 
-const backendUrl = "http://localhost:8080";
+const backendUrl = CONFIG.BACKEND_URL; 
 
 export async function loginUser(e) {
   e.preventDefault();
@@ -16,7 +17,7 @@ export async function loginUser(e) {
   const msg = document.getElementById("loginMessage");
 
   try {
-    const response = await fetch("http://localhost:8080/login-db", {
+    const response = await fetch(`${backendUrl}/login-db`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password })

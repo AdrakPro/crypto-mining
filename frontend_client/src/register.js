@@ -1,6 +1,7 @@
 import { convertToPem } from "./utils.js";
+import CONFIG from "./config.js";
 
-const backendUrl = "http://localhost:8080";
+const backendUrl = CONFIG.BACKEND_URL;
 
 export async function registerUser(e) {
   e.preventDefault();

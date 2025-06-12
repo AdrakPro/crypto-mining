@@ -1,4 +1,6 @@
-const SERVER_BASE_URL = "http://localhost:8080";
+import CONFIG from "./config.js"
+
+const SERVER_BASE_URL = CONFIG.BACKEND_URL;
 
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
